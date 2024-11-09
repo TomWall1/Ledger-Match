@@ -1,64 +1,144 @@
-// src/components/CSVExportHelper.js
-export const exportToCSV = (data, filename) => {
-  // Define headers based on your data structure
+// CSVExportHelper.js
+export const exportToCSV = (data, type) => {
+  if (!data || data.length === 0) return;
+
+  let csvContent = '';
+  let filename = '';
+
+  switch (type) {
+    case 'perfect':
+      filename = 'perfect-matches.csv';
+      csvContent = generatePerfectMatchesCSV(data);
+      break;
+    case 'mismatches':
+      filename = 'mismatches.csv';
+      csvContent = generateMismatchesCSV(data);
+      break;
+    case 'unmatched':
+      filename = 'unmatched-items.csv';
+      csvContent = generateUnmatchedItemsCSV(data);
+      break;
+    default:
+      return;
+  }
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  if (navigator.msSaveBlob) {
+    navigator.msSaveBlob(blob, filename);
+  } else {
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+const generatePerfectMatchesCSV = (matches) => {
   const headers = [
     'Transaction Number',
     'Type',
     'Amount',
     'Date',
+    'Due Date',
     'Status',
-    'Reference',
-    'Matched Transaction Number',
-    'Matched Type',
-    'Matched Amount',
-    'Matched Date',
-    'Matched Status',
-    'Matched Reference',
-    'Differences'
-  ];
+    'Reference'
+  ].join(',') + '\n';
 
-  // Format data rows
-  const formatRow = (source, matched, differences = null) => {
-    const row = [
+  const rows = matches.map(match => {
+    const { source } = match;
+    return [
       source.transactionNumber,
       source.type,
       source.amount,
       source.date,
+      source.dueDate,
       source.status,
+      source.reference
+    ].join(',');
+  }).join('\n');
+
+  return headers + rows;
+};
+
+const generateMismatchesCSV = (mismatches) => {
+  const headers = [
+    'Transaction Number',
+    'AR Type',
+    'AP Type',
+    'AR Amount',
+    'AP Amount',
+    'AR Date',
+    'AP Date',
+    'AR Due Date',
+    'AP Due Date',
+    'AR Status',
+    'AP Status',
+    'AR Reference',
+    'AP Reference'
+  ].join(',') + '\n';
+
+  const rows = mismatches.map(mismatch => {
+    const { source, matched } = mismatch;
+    return [
+      source.transactionNumber,
+      source.type,
+      matched.type,
+      source.amount,
+      matched.amount,
+      source.date,
+      matched.date,
+      source.dueDate,
+      matched.dueDate,
+      source.status,
+      matched.status,
       source.reference,
-      matched ? matched.transactionNumber : '',
-      matched ? matched.type : '',
-      matched ? matched.amount : '',
-      matched ? matched.date : '',
-      matched ? matched.status : '',
-      matched ? matched.reference : '',
-      differences ? Object.entries(differences)
-        .filter(([_, isDifferent]) => isDifferent)
-        .map(([field]) => field)
-        .join('; ') : ''
-    ];
-    // Escape any commas in the values
-    return row.map(value => `"${value}"`).join(',');
-  };
+      matched.reference
+    ].join(',');
+  }).join('\n');
 
-  // Create CSV content
-  const csvContent = [
-    headers.join(','),
-    ...data.map(item => {
-      if (item.matched) {
-        return formatRow(item.source, item.matched, item.differences);
-      } else {
-        return formatRow(item, null);
-      }
-    })
-  ].join('\n');
+  return headers + rows;
+};
 
-  // Create and trigger download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.setAttribute('download', `${filename}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+const generateUnmatchedItemsCSV = (unmatchedData) => {
+  const headers = [
+    'Ledger Type',
+    'Transaction Number',
+    'Type',
+    'Amount',
+    'Date',
+    'Due Date',
+    'Status',
+    'Reference'
+  ].join(',') + '\n';
+
+  // Process AR (Company1) unmatched items
+  const arRows = unmatchedData.company1.map(item => [
+    'Accounts Receivable',  // Add ledger identifier
+    item.transactionNumber,
+    item.type,
+    item.amount,
+    item.date,
+    item.dueDate,
+    item.status,
+    item.reference
+  ].join(','));
+
+  // Process AP (Company2) unmatched items
+  const apRows = unmatchedData.company2.map(item => [
+    'Accounts Payable',  // Add ledger identifier
+    item.transactionNumber,
+    item.type,
+    item.amount,
+    item.date,
+    item.dueDate,
+    item.status,
+    item.reference
+  ].join(','));
+
+  // Combine all rows
+  const allRows = [...arRows, ...apRows].join('\n');
+
+  return headers + allRows;
 };
