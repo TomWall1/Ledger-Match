@@ -1,37 +1,41 @@
 // CSVExportHelper.js
-export const exportToCSV = (data, type) => {
-  if (!data || data.length === 0) return;
-
+export const exportToCSV = (data, filename) => {
+  console.log('Exporting CSV:', { data, filename }); // Debug log
+  
   let csvContent = '';
-  let filename = '';
-
-  switch (type) {
-    case 'perfect':
-      filename = 'perfect-matches.csv';
+  
+  // Handle different data types
+  switch (filename) {
+    case 'perfect-matches':
       csvContent = generatePerfectMatchesCSV(data);
+      filename = 'perfect-matches.csv';
       break;
     case 'mismatches':
-      filename = 'mismatches.csv';
       csvContent = generateMismatchesCSV(data);
+      filename = 'mismatches.csv';
       break;
-    case 'unmatched':
-      filename = 'unmatched-items.csv';
+    case 'unmatched-items':
       csvContent = generateUnmatchedItemsCSV(data);
+      filename = 'unmatched-items.csv';
       break;
     default:
+      console.error('Unknown file type:', filename);
       return;
   }
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
+  
   if (navigator.msSaveBlob) {
     navigator.msSaveBlob(blob, filename);
   } else {
-    link.href = window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
+    link.href = url;
     link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
 };
 
@@ -55,7 +59,7 @@ const generatePerfectMatchesCSV = (matches) => {
       source.date,
       source.dueDate,
       source.status,
-      source.reference
+      source.reference || ''
     ].join(',');
   }).join('\n');
 
@@ -93,15 +97,15 @@ const generateMismatchesCSV = (mismatches) => {
       matched.dueDate,
       source.status,
       matched.status,
-      source.reference,
-      matched.reference
+      source.reference || '',
+      matched.reference || ''
     ].join(',');
   }).join('\n');
 
   return headers + rows;
 };
 
-const generateUnmatchedItemsCSV = (unmatchedData) => {
+const generateUnmatchedItemsCSV = (items) => {
   const headers = [
     'Ledger Type',
     'Transaction Number',
@@ -113,32 +117,17 @@ const generateUnmatchedItemsCSV = (unmatchedData) => {
     'Reference'
   ].join(',') + '\n';
 
-  // Process AR (Company1) unmatched items
-  const arRows = unmatchedData.company1.map(item => [
-    'Accounts Receivable',  // Add ledger identifier
+  // Process AR and AP items
+  const rows = items.map(item => [
+    item.isAR ? 'Accounts Receivable' : 'Accounts Payable', // Determine ledger type based on source
     item.transactionNumber,
     item.type,
     item.amount,
     item.date,
     item.dueDate,
     item.status,
-    item.reference
+    item.reference || ''
   ].join(','));
 
-  // Process AP (Company2) unmatched items
-  const apRows = unmatchedData.company2.map(item => [
-    'Accounts Payable',  // Add ledger identifier
-    item.transactionNumber,
-    item.type,
-    item.amount,
-    item.date,
-    item.dueDate,
-    item.status,
-    item.reference
-  ].join(','));
-
-  // Combine all rows
-  const allRows = [...arRows, ...apRows].join('\n');
-
-  return headers + allRows;
+  return headers + rows.join('\n');
 };
