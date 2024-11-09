@@ -8,7 +8,7 @@ const app = express();
 
 // Enable CORS with specific options
 app.use(cors({
-  origin: 'http://localhost:3000', // Your frontend URL
+  origin: ['http://localhost:3000', 'https://ledger-match.vercel.app', 'https://ledger-match-git-main-tomwall1.vercel.app'],
   methods: ['POST', 'GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type']
 }));
