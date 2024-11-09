@@ -75,7 +75,6 @@ const MatchingResults = ({ matchResults }) => {
     </select>
   );
 
-  // Updated ExportButton component
   const ExportButton = ({ dataType, data }) => {
     const handleExport = () => {
       console.log('Export button clicked:', dataType);
@@ -116,6 +115,20 @@ const MatchingResults = ({ matchResults }) => {
     );
   };
 
+  const TransactionDisplay = ({ transaction, title }) => (
+    <div className="border rounded p-3">
+      <h4 className="font-medium mb-2">{title}</h4>
+      <div className="space-y-1 text-sm">
+        <p>Transaction #: {transaction.transactionNumber}</p>
+        <p>Type: {transaction.type}</p>
+        <p>Amount: {formatCurrency(transaction.amount)}</p>
+        <p>Date: {formatDate(transaction.date)}</p>
+        <p>Status: {transaction.status}</p>
+        <p>Reference: {transaction.reference}</p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Totals Summary */}
@@ -143,7 +156,88 @@ const MatchingResults = ({ matchResults }) => {
       <div className="bg-white rounded-lg p-6 border mt-6">
         <h2 className="text-lg font-semibold mb-4">Match Type Breakdown</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* ... your existing breakdown items ... */}
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <h3 className="text-sm font-medium mb-2">Total Transactions</h3>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold">{totalTransactions}</p>
+              <p className="text-lg text-gray-600">
+                {formatCurrency(
+                  calculateTotalAmount(matchResults.perfectMatches) +
+                  calculateTotalAmount(matchResults.mismatches) +
+                  calculateUnmatchedAmount(matchResults.unmatchedItems.company1)
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => scrollToSection('perfectMatches')}
+            className="p-4 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
+          >
+            <h3 className="text-sm font-medium text-green-800 mb-2 flex items-center gap-2">
+              Perfect Matches
+              <span className="text-xs text-green-600">(click to view)</span>
+            </h3>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold text-green-600">
+                {matchResults.perfectMatches.length}
+                <span className="text-sm ml-2">
+                  ({formatPercentage(matchResults.perfectMatches.length, totalTransactions)})
+                </span>
+              </p>
+              <p className="text-lg text-green-600">
+                {formatCurrency(calculateTotalAmount(matchResults.perfectMatches))}
+              </p>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => scrollToSection('mismatches')}
+            className="p-4 bg-yellow-50 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
+          >
+            <h3 className="text-sm font-medium text-yellow-800 mb-2 flex items-center gap-2">
+              Mismatches
+              <span className="text-xs text-yellow-600">(click to view)</span>
+            </h3>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold text-yellow-600">
+                {matchResults.mismatches.length}
+                <span className="text-sm ml-2">
+                  ({formatPercentage(matchResults.mismatches.length, totalTransactions)})
+                </span>
+              </p>
+              <p className="text-lg text-yellow-600">
+                {formatCurrency(calculateTotalAmount(matchResults.mismatches))}
+              </p>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => scrollToSection('unmatchedItems')}
+            className="p-4 bg-red-50 rounded-lg cursor-pointer hover:bg-red-100 transition-colors"
+          >
+            <h3 className="text-sm font-medium text-red-800 mb-2 flex items-center gap-2">
+              Unmatched
+              <span className="text-xs text-red-600">(click to view)</span>
+            </h3>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold text-red-600">
+                {matchResults.unmatchedItems.company1.length + matchResults.unmatchedItems.company2.length}
+                <span className="text-sm ml-2">
+                  ({formatPercentage(
+                    matchResults.unmatchedItems.company1.length + matchResults.unmatchedItems.company2.length, 
+                    totalTransactions
+                  )})
+                </span>
+              </p>
+              <p className="text-lg text-red-600">
+                {formatCurrency(
+                  calculateUnmatchedAmount(matchResults.unmatchedItems.company1) +
+                  calculateUnmatchedAmount(matchResults.unmatchedItems.company2)
+                )}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -165,7 +259,14 @@ const MatchingResults = ({ matchResults }) => {
           </div>
           {expandedSections.perfectMatches && (
             <div className="max-h-96 overflow-y-auto p-4">
-              {/* ... your perfect matches content ... */}
+              <div className="space-y-4">
+                {matchResults.perfectMatches.map((match, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-green-50 rounded-lg">
+                    <TransactionDisplay transaction={match.source} title="Accounts Receivables Ledger" />
+                    <TransactionDisplay transaction={match.matched} title="Accounts Payable Ledger" />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -187,7 +288,23 @@ const MatchingResults = ({ matchResults }) => {
           </div>
           {expandedSections.mismatches && (
             <div className="max-h-96 overflow-y-auto p-4">
-              {/* ... your mismatches content ... */}
+              <div className="space-y-4">
+                {filteredMismatches.map((match, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-yellow-50 rounded-lg">
+                    <TransactionDisplay transaction={match.source} title="Accounts Receivables Ledger" />
+                    <TransactionDisplay transaction={match.matched} title="Accounts Payable Ledger" />
+                    <div className="col-span-2 text-sm text-red-600">
+                      <p className="font-medium">Differences found in:</p>
+                      <ul className="list-disc list-inside">
+                        {match.differences.amount && <li>Amount</li>}
+                        {match.differences.date && <li>Date</li>}
+                        {match.differences.status && <li>Status</li>}
+                        {match.differences.type && <li>Type</li>}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -208,7 +325,31 @@ const MatchingResults = ({ matchResults }) => {
           </div>
           {expandedSections.unmatchedItems && (
             <div className="max-h-96 overflow-y-auto p-4">
-              {/* ... your unmatched items content ... */}
+              {matchResults.unmatchedItems.company1.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-3">Only in Accounts Receivables Ledger ({matchResults.unmatchedItems.company1.length})</h3>
+                  <div className="space-y-4">
+                    {matchResults.unmatchedItems.company1.map((transaction, index) => (
+                      <div key={index} className="p-4 bg-red-50 rounded-lg">
+                        <TransactionDisplay transaction={transaction} title="Transaction Details" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {matchResults.unmatchedItems.company2.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Only in Accounts Payable Ledger ({matchResults.unmatchedItems.company2.length})</h3>
+                  <div className="space-y-4">
+                    {matchResults.unmatchedItems.company2.map((transaction, index) => (
+                      <div key={index} className="p-4 bg-red-50 rounded-lg">
+                        <TransactionDisplay transaction={transaction} title="Transaction Details" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
