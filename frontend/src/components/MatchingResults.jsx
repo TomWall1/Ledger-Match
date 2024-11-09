@@ -78,7 +78,9 @@ const MatchingResults = ({ matchResults }) => {
   // Updated ExportButton component
   const ExportButton = ({ dataType, data }) => {
     const handleExport = () => {
+      console.log('Export button clicked:', dataType);
       let exportData;
+      
       switch (dataType) {
         case 'perfect-matches':
           exportData = data;
@@ -96,8 +98,12 @@ const MatchingResults = ({ matchResults }) => {
           console.error('Unknown export type:', dataType);
           return;
       }
-      console.log('Exporting:', dataType, exportData);
-      exportToCSV(exportData, dataType);
+      
+      try {
+        exportToCSV(exportData, dataType);
+      } catch (error) {
+        console.error('Error during export:', error);
+      }
     };
 
     return (
@@ -109,33 +115,6 @@ const MatchingResults = ({ matchResults }) => {
       </button>
     );
   };
-
-  const TransactionDisplay = ({ transaction, title }) => (
-    <div className="border rounded p-3">
-      <h4 className="font-medium mb-2">{title}</h4>
-      <div className="space-y-1 text-sm">
-        <p>Transaction #: {transaction.transactionNumber}</p>
-        <p>Type: {transaction.type}</p>
-        <p>Amount: {formatCurrency(transaction.amount)}</p>
-        <p>Date: {formatDate(transaction.date)}</p>
-        <p>Status: {transaction.status}</p>
-        <p>Reference: {transaction.reference}</p>
-      </div>
-    </div>
-  );
-
-  // [Previous UI code remains exactly the same until the export buttons]
-
-  // In the Perfect Matches section, update the ExportButton:
-  <ExportButton dataType="perfect-matches" data={matchResults.perfectMatches} />
-
-  // In the Mismatches section, update the ExportButton:
-  <ExportButton dataType="mismatches" data={filteredMismatches} />
-
-  // In the Unmatched Items section, update the ExportButton:
-  <ExportButton dataType="unmatched-items" data={null} />
-
-  // [Rest of your existing UI code remains exactly the same]
 
   return (
     <div className="space-y-6">
@@ -160,14 +139,17 @@ const MatchingResults = ({ matchResults }) => {
         </div>
       </div>
 
-      {/* Match Type Breakdown - Keeping your existing code */}
+      {/* Match Type Breakdown */}
       <div className="bg-white rounded-lg p-6 border mt-6">
-        {/* Your existing Match Type Breakdown code */}
+        <h2 className="text-lg font-semibold mb-4">Match Type Breakdown</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* ... your existing breakdown items ... */}
+        </div>
       </div>
 
       {/* Results Sections */}
       <div className="space-y-4">
-        {/* Perfect Matches Section */}
+        {/* Perfect Matches */}
         <div id="perfectMatches" className="bg-white rounded-lg border">
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-4">
@@ -181,10 +163,14 @@ const MatchingResults = ({ matchResults }) => {
               <ExportButton dataType="perfect-matches" data={matchResults.perfectMatches} />
             </div>
           </div>
-          {/* Rest of your Perfect Matches section remains the same */}
+          {expandedSections.perfectMatches && (
+            <div className="max-h-96 overflow-y-auto p-4">
+              {/* ... your perfect matches content ... */}
+            </div>
+          )}
         </div>
 
-        {/* Mismatches Section */}
+        {/* Mismatches */}
         <div id="mismatches" className="bg-white rounded-lg border">
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-4">
@@ -199,10 +185,14 @@ const MatchingResults = ({ matchResults }) => {
             </div>
             <FilterDropdown value={mismatchFilter} onChange={setMismatchFilter} />
           </div>
-          {/* Rest of your Mismatches section remains the same */}
+          {expandedSections.mismatches && (
+            <div className="max-h-96 overflow-y-auto p-4">
+              {/* ... your mismatches content ... */}
+            </div>
+          )}
         </div>
 
-        {/* Unmatched Items Section */}
+        {/* Unmatched Items */}
         <div id="unmatchedItems" className="bg-white rounded-lg border">
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-4">
@@ -216,7 +206,11 @@ const MatchingResults = ({ matchResults }) => {
               <ExportButton dataType="unmatched-items" data={null} />
             </div>
           </div>
-          {/* Rest of your Unmatched Items section remains the same */}
+          {expandedSections.unmatchedItems && (
+            <div className="max-h-96 overflow-y-auto p-4">
+              {/* ... your unmatched items content ... */}
+            </div>
+          )}
         </div>
       </div>
     </div>
