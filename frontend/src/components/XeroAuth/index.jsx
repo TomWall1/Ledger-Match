@@ -7,7 +7,6 @@ const XeroAuth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check URL for auth callback
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const error = params.get('error');
