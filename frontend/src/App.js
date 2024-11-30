@@ -29,7 +29,19 @@ function PrivateRoute({ children }) {
 
 function MainApp() {
   const [currentScreen, setCurrentScreen] = useState('upload');
-  const [matches, setMatches] = useState([]);
+  const [matches, setMatches] = useState({
+    totals: {
+      company1Total: "0.00",
+      company2Total: "0.00",
+      variance: "0.00"
+    },
+    perfectMatches: [],
+    mismatches: [],
+    unmatchedItems: {
+      company1: [],
+      company2: []
+    }
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [files, setFiles] = useState({
@@ -104,12 +116,23 @@ function MainApp() {
       const matchResults = JSON.parse(responseText);
       console.log('Received match results:', matchResults);
 
+      // Ensure the data structure is correct before setting state
       const processedResults = {
-        totals: matchResults.totals || { company1Total: 0, company2Total: 0, variance: 0 },
-        perfectMatches: matchResults.perfectMatches || [],
-        mismatches: matchResults.mismatches || [],
-        unmatchedItems: matchResults.unmatchedItems || { company1: [], company2: [] }
+        totals: {
+          company1Total: matchResults.totals?.company1Total || "0.00",
+          company2Total: matchResults.totals?.company2Total || "0.00",
+          variance: matchResults.totals?.variance || "0.00"
+        },
+        perfectMatches: Array.isArray(matchResults.perfectMatches) ? matchResults.perfectMatches : [],
+        mismatches: Array.isArray(matchResults.mismatches) ? matchResults.mismatches : [],
+        unmatchedItems: {
+          company1: Array.isArray(matchResults.unmatchedItems?.company1) ? matchResults.unmatchedItems.company1 : [],
+          company2: Array.isArray(matchResults.unmatchedItems?.company2) ? matchResults.unmatchedItems.company2 : []
+        }
       };
+
+      // Debug logs for processed results
+      console.log('Processed results before setting state:', processedResults);
 
       setMatches(processedResults);
       setCurrentScreen('results');
@@ -120,6 +143,10 @@ function MainApp() {
       setIsLoading(false);
     }
   };
+
+  // Debug logs for render
+  console.log('Current screen:', currentScreen);
+  console.log('Current matches state:', matches);
 
   return (
     <div className="container mx-auto p-4">
