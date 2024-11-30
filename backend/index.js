@@ -10,6 +10,8 @@ const app = express();
 app.use(cors({
   origin: [
     'http://localhost:3000',
+    'http://localhost:3003',
+    'http://localhost:3005',  // Added your new development port
     'https://ledger-match.vercel.app',
     'https://ledger-match-git-main-tomwall1.vercel.app',
     'https://ledger-match-9knq3j55o-toms-projects-c3abf80c.vercel.app'
