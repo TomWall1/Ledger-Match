@@ -1,19 +1,42 @@
-﻿// App.js
-import React, { useState } from 'react';
-import { FileUpload } from './components/FileUpload.jsx';
+// App.js
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { FileUpload } from './components/FileUpload';
 import MatchingResults from './components/MatchingResults';
 import DateFormatSelect from './components/DateFormatSelect';
+import XeroAuth from './components/XeroAuth';
+import { AuthUtils } from './utils/auth';
 
-export function App() {
-  const [currentScreen, setCurrentScreen] = useState('upload');
-  const [matches, setMatches] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [files, setFiles] = useState({
+function PrivateRoute({ children }) {
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const checkAuth = async () => {
+      const authStatus = await AuthUtils.verifyAuth();
+      setIsAuthenticated(authStatus);
+      setIsLoading(false);
+    };
+    checkAuth();
+  }, []);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  return isAuthenticated ? children : <Navigate to="/auth/xero" />;
+}
+
+function MainApp() {
+  const [currentScreen, setCurrentScreen] = React.useState('upload');
+  const [matches, setMatches] = React.useState([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const [files, setFiles] = React.useState({
     company1: null,
     company2: null
   });
-  const [dateFormats, setDateFormats] = useState({
+  const [dateFormats, setDateFormats] = React.useState({
     company1: 'YYYY-MM-DD',
     company2: 'YYYY-MM-DD'
   });
@@ -23,7 +46,7 @@ export function App() {
       ...prev,
       [companyKey]: file
     }));
-    setError(null); // Clear any previous errors
+    setError(null);
   };
 
   const handleDateFormatChange = (companyKey, format) => {
@@ -53,19 +76,32 @@ export function App() {
       formData.append('dateFormat1', dateFormats.company1);
       formData.append('dateFormat2', dateFormats.company2);
 
-      console.log('Starting file upload to:', 'https://ledger-match-backend.onrender.com/match');
+      // Debug logging
+      console.log('Files being sent:', {
+        file1: files.company1,
+        file2: files.company2,
+        dateFormat1: dateFormats.company1,
+        dateFormat2: dateFormats.company2
+      });
       
       const response = await fetch('https://ledger-match-backend.onrender.com/match', {
         method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+        },
         body: formData
       });
 
+      // Debug logging
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Server error: ${response.status}`);
+        throw new Error(responseText || `Server error: ${response.status}`);
       }
 
-      const matchResults = await response.json();
+      const matchResults = JSON.parse(responseText);
       console.log('Received match results:', matchResults);
 
       const processedResults = {
@@ -217,6 +253,24 @@ export function App() {
         </>
       )}
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/auth/xero" element={<XeroAuth />} />
+        <Route
+          path="/*"
+          element={
+            <PrivateRoute>
+              <MainApp />
+            </PrivateRoute>
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
 

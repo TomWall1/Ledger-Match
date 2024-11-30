@@ -1,13 +1,16 @@
+// src/components/DateFormatSelect.jsx
 import React from 'react';
 
-export const DateFormatSelect = ({ selectedFormat, onChange, label }) => {
+const DateFormatSelect = ({ selectedFormat, onChange, label = 'Select Date Format' }) => {
   return (
-    <div className="mt-2">
-      <label className="block text-sm text-gray-700 mb-1">{label}</label>
+    <div className="mt-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {label}
+      </label>
       <select
         value={selectedFormat}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+        className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
       >
         <option value="YYYY-MM-DD">YYYY-MM-DD (e.g., 2024-01-31)</option>
         <option value="DD/MM/YYYY">DD/MM/YYYY (e.g., 31/01/2024)</option>

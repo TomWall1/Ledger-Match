@@ -1,4 +1,0 @@
-transaction_number,transaction_type,amount,issue_date,due_date,status,reference
-INV001,Invoice,1000.00,2024-01-01,2024-01-31,Open,PO12345
-CM001,Credit_Memo,-200.00,2024-01-02,2024-01-02,Open,Ref001
-PAY001,Payment,-800.00,2024-01-03,2024-01-03,Closed,Payment123

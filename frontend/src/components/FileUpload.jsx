@@ -1,4 +1,3 @@
-// src/components/FileUpload.js
 import React, { useRef } from 'react';
 
 export function FileUpload({ onFileSelected, accept = '.csv', label = 'Upload CSV' }) {
