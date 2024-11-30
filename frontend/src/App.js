@@ -1,5 +1,5 @@
 // App.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { FileUpload } from './components/FileUpload';
 import MatchingResults from './components/MatchingResults';
@@ -8,10 +8,10 @@ import XeroAuth from './components/XeroAuth';
 import { AuthUtils } from './utils/auth';
 
 function PrivateRoute({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const checkAuth = async () => {
       const authStatus = await AuthUtils.verifyAuth();
       setIsAuthenticated(authStatus);
@@ -28,15 +28,15 @@ function PrivateRoute({ children }) {
 }
 
 function MainApp() {
-  const [currentScreen, setCurrentScreen] = React.useState('upload');
-  const [matches, setMatches] = React.useState([]);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [error, setError] = React.useState(null);
-  const [files, setFiles] = React.useState({
+  const [currentScreen, setCurrentScreen] = useState('upload');
+  const [matches, setMatches] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [files, setFiles] = useState({
     company1: null,
     company2: null
   });
-  const [dateFormats, setDateFormats] = React.useState({
+  const [dateFormats, setDateFormats] = useState({
     company1: 'YYYY-MM-DD',
     company2: 'YYYY-MM-DD'
   });
