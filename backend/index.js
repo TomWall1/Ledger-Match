@@ -18,9 +18,24 @@ app.get('/', (req, res) => {
   res.json({ status: 'API is running' });
 });
 
-app.get('/api/xero/auth-url', (req, res) => {
-  const authUrl = xero.buildConsentUrl();
-  res.json({ url: authUrl });
+app.get('/api/xero/config', (req, res) => {
+  res.json({
+    clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
+    clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
+    redirectUri: process.env.XERO_REDIRECT_URI,
+  });
+});
+
+app.get('/api/xero/auth-url', async (req, res) => {
+  try {
+    console.log('Generating Xero consent URL');
+    const consentUrl = await xero.buildConsentUrl();
+    console.log('Consent URL generated:', consentUrl);
+    res.json({ url: consentUrl });
+  } catch (error) {
+    console.error('Error generating consent URL:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.post('/api/xero/callback', async (req, res) => {
@@ -29,6 +44,7 @@ app.post('/api/xero/callback', async (req, res) => {
     await xero.apiCallback(code);
     res.json({ success: true });
   } catch (error) {
+    console.error('Error in Xero callback:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -39,6 +55,7 @@ app.get('/api/xero/invoices/:tenantId', async (req, res) => {
     const invoices = await xero.accountingApi.getInvoices(tenantId);
     res.json(invoices.body);
   } catch (error) {
+    console.error('Error fetching invoices:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -46,4 +63,9 @@ app.get('/api/xero/invoices/:tenantId', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('Environment:', {
+    clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
+    clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
+    redirectUri: process.env.XERO_REDIRECT_URI,
+  });
 });
