@@ -14,6 +14,10 @@ const xero = new XeroClient({
   scopes: ['accounting.transactions.read', 'accounting.contacts.read']
 });
 
+app.get('/', (req, res) => {
+  res.json({ status: 'API is running' });
+});
+
 app.get('/api/xero/auth-url', (req, res) => {
   const authUrl = xero.buildConsentUrl();
   res.json({ url: authUrl });
