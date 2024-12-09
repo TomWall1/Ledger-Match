@@ -1,10 +1,12 @@
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const csv = require('csv-parser');
-const fs = require('fs');
-const { XeroClient } = require('xero-node');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import csv from 'csv-parser';
+import fs from 'fs';
+import dotenv from 'dotenv';
+import xeroRoutes from './src/routes/xeroAuth.js';
+
+dotenv.config();
 
 const app = express();
 
@@ -34,13 +36,8 @@ app.use(cors({
 
 app.use(express.json());
 
-// Initialize Xero client
-const xero = new XeroClient({
-  clientId: process.env.XERO_CLIENT_ID,
-  clientSecret: process.env.XERO_CLIENT_SECRET,
-  redirectUris: [process.env.XERO_REDIRECT_URI],
-  scopes: ['accounting.transactions.read', 'accounting.contacts.read']
-});
+// Mount the Xero auth routes
+app.use('/auth', xeroRoutes);
 
 // Helper function to clean amount values
 const cleanAmount = (amountStr) => {
@@ -213,43 +210,6 @@ app.get('/api/xero/config', (req, res) => {
     clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
     redirectUri: process.env.XERO_REDIRECT_URI,
   });
-});
-
-// Xero authentication URL endpoint
-app.get('/api/xero/auth-url', async (req, res) => {
-  try {
-    console.log('Generating Xero consent URL');
-    const consentUrl = await xero.buildConsentUrl();
-    console.log('Consent URL generated:', consentUrl);
-    res.json({ url: consentUrl });
-  } catch (error) {
-    console.error('Error generating consent URL:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Xero callback endpoint
-app.post('/api/xero/callback', async (req, res) => {
-  try {
-    const { code } = req.body;
-    await xero.apiCallback(code);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error in Xero callback:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Xero invoices endpoint
-app.get('/api/xero/invoices/:tenantId', async (req, res) => {
-  try {
-    const { tenantId } = req.params;
-    const invoices = await xero.accountingApi.getInvoices(tenantId);
-    res.json(invoices.body);
-  } catch (error) {
-    console.error('Error fetching invoices:', error);
-    res.status(500).json({ error: error.message });
-  }
 });
 
 // CSV matching endpoint
