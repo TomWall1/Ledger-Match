@@ -6,6 +6,7 @@ import MatchingResults from './components/MatchingResults';
 import DateFormatSelect from './components/DateFormatSelect';
 import XeroAuth from './components/XeroAuth';
 import { AuthUtils } from './utils/auth';
+import XeroCallback from './components/XeroCallback';
 
 function PrivateRoute({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -324,6 +325,7 @@ export function App() {
     <Router>
       <Routes>
         <Route path="/auth/xero" element={<XeroAuth />} />
+        <Route path="/auth/xero/callback" element={<XeroCallback />} />
         <Route
           path="/*"
           element={
