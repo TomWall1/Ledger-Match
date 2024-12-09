@@ -1,16 +1,3 @@
-// backend/src/config/xero.js
-import { XeroClient } from 'xero-node';
-
-const xeroConfig = {
-  clientId: process.env.XERO_CLIENT_ID,
-  clientSecret: process.env.XERO_CLIENT_SECRET,
-  redirectUris: [process.env.XERO_REDIRECT_URI],
-  scopes: process.env.XERO_SCOPES.split(' ')
-};
-
-export const xeroClient = new XeroClient(xeroConfig);
-
-// backend/src/routes/xeroAuth.js
 import express from 'express';
 import { xeroClient } from '../config/xero.js';
 
@@ -73,9 +60,3 @@ router.get('/xero/organizations', async (req, res) => {
 });
 
 export default router;
-
-// In your main app.js or index.js
-import xeroRoutes from './routes/xeroAuth.js';
-
-// Add this to your Express app setup
-app.use('/auth', xeroRoutes);
