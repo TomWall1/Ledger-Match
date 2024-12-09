@@ -24,7 +24,8 @@ app.use(cors({
     'http://localhost:3005',
     'https://ledger-match.vercel.app',
     'https://ledger-match-git-main-tomwall1.vercel.app',
-    'https://ledger-match-9knq3j55o-toms-projects-c3abf80c.vercel.app'
+    'https://ledger-match-9knq3j55o-toms-projects-c3abf80c.vercel.app',
+    'https://ledger-match-5y3c9ltn2-toms-projects-c3abf80c.vercel.app'
   ],
   methods: ['POST', 'GET', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Accept'],
