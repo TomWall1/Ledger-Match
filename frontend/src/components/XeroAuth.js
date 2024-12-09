@@ -17,31 +17,45 @@ const XeroAuth = () => {
       const response = await axios.get(apiUrl, {
         headers: {
           'Content-Type': 'application/json',
-        }
+          'Accept': 'application/json'
+        },
+        withCredentials: true
       });
       console.log('Full Response:', response);
       
-      if (response.data.url) {
+      if (response?.data?.url) {
         console.log('Redirecting to:', response.data.url);
         window.location.href = response.data.url;
       } else {
-        throw new Error('No authorization URL received');
+        console.error('Invalid response:', response);
+        throw new Error('No valid authorization URL received');
       }
     } catch (error) {
       console.error('Detailed Error:', {
         message: error.message,
-        response: error.response,
-        config: error.config
+        response: error.response?.data,
+        status: error.response?.status,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
       });
-      setError(
-        error.response?.data?.error || 
-        error.message || 
-        'Failed to connect to Xero. Please try again.'
-      );
+      
+      let errorMessage = 'Failed to connect to Xero. ';
+      if (error.response?.status === 500) {
+        errorMessage += 'Server error occurred. Please try again later.';
+      } else if (error.response?.status === 403) {
+        errorMessage += 'CORS error. Please check configuration.';
+      } else {
+        errorMessage += error.response?.data?.error || error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
-};
+  };
 
   const getErrorMessage = (error) => {
     if (error.includes('Failed to connect')) {
