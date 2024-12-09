@@ -69,8 +69,44 @@ function MainApp() {
   };
 
   const handleTemplateDownload = () => {
-    window.open('/template.csv', '_blank');
-  };
+  // Define the CSV headers and example row
+  const headers = [
+    'transaction_number',
+    'transaction_type',
+    'amount',
+    'issue_date',
+    'due_date',
+    'status',
+    'reference'
+  ];
+
+  // Create example rows
+  const exampleRows = [
+    ['INV-001', 'Invoice', '1000.00', '2024-01-01', '2024-02-01', 'Open', 'PO-123'],
+    ['PYMT-001', 'Payment', '-500.00', '2024-01-15', '2024-01-15', 'Open', 'INV-001']
+  ];
+
+  // Combine headers and rows
+  const csvContent = [
+    headers.join(','),
+    ...exampleRows.map(row => row.join(','))
+  ].join('\n');
+
+  // Create a Blob containing the CSV data
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  
+  // Create a temporary link element and trigger download
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', 'ledger_template.csv');
+  document.body.appendChild(link);
+  link.click();
+  
+  // Clean up
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+};
 
   const handleProcessFiles = async () => {
     if (!files.company1 || !files.company2) {
