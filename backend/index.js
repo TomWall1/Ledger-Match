@@ -30,11 +30,32 @@ app.use(cors({
     'https://ledger-match-5y3c9ltn2-toms-projects-c3abf80c.vercel.app'
   ],
   methods: ['POST', 'GET', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Accept'],
-  credentials: false
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  credentials: true,
+  maxAge: 3600
 }));
 
+// Add pre-flight OPTIONS handling
+app.options('*', cors());
+
+// Body parsing middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Test endpoint for Xero
+app.get('/auth/test', (req, res) => {
+  res.json({ 
+    status: 'Xero routes accessible',
+    cors: 'enabled',
+    env: {
+      clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
+      clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
+      redirectUri: process.env.XERO_REDIRECT_URI,
+      frontend: process.env.FRONTEND_URL
+    }
+  });
+});
 
 // Mount the Xero auth routes
 app.use('/auth', xeroRoutes);
@@ -252,13 +273,30 @@ app.post('/match', upload.fields([
   }
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    path: req.path,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Environment:', {
+    node_env: process.env.NODE_ENV,
     clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
     clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
     redirectUri: process.env.XERO_REDIRECT_URI,
+    frontend: process.env.FRONTEND_URL
   });
+});
+
+// Add unhandled rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
