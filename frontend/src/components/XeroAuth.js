@@ -6,24 +6,11 @@ const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleConnect = async () => {
-    console.log('Button clicked - starting connection');
     setIsLoading(true);
     setError(null);
-    
     try {
-      const apiUrl = `${process.env.REACT_APP_API_URL}/auth/xero`;
-      console.log('Making request to:', apiUrl);
-
-      const response = await axios({
-        method: 'get',
-        url: apiUrl,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/auth/xero`);
       
-      console.log('Response:', response);
-
       if (response?.data?.url) {
         window.location.href = response.data.url;
       } else {
@@ -49,7 +36,7 @@ const XeroAuth = () => {
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {error && (
             <div className="mb-4 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
-              <p>{error}</p>
+              {error}
             </div>
           )}
 
