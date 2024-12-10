@@ -20,36 +20,21 @@ if (!fs.existsSync('uploads')) {
 
 // Enable CORS with specific options
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3003',
-    'http://localhost:3005',
-    'https://ledger-match.vercel.app',
-    'https://ledger-match-git-main-tomwall1.vercel.app',
-    'https://ledger-match-9knq3j55o-toms-projects-c3abf80c.vercel.app',
-    'https://ledger-match-5y3c9ltn2-toms-projects-c3abf80c.vercel.app'
-  ],
+  origin: 'https://ledger-match.vercel.app', // Simplified to single origin
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-  ],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  credentials: false,
-  maxAge: 3600
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  credentials: false
 }));
 
-// Handle preflight requests
+// Handle OPTIONS preflight requests
 app.options('*', cors());
 
-// Add headers middleware
+// Add headers middleware for additional CORS security
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://ledger-match.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Origin', 'https://ledger-match.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'false');
   next();
 });
 
@@ -57,9 +42,36 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Test endpoints
+// Mount the Xero auth routes
+app.use('/auth', xeroRoutes);
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ status: 'API is running' });
+});
+
+// Test CORS endpoint
 app.get('/test-cors', (req, res) => {
-  res.json({ message: 'CORS is working' });
+  res.json({ 
+    message: 'CORS is working',
+    origin: req.headers.origin || 'No origin header',
+    method: req.method,
+    headers: req.headers
+  });
+});
+
+// Test auth endpoint
+app.get('/auth/test', (req, res) => {
+  res.json({ 
+    status: 'Xero routes accessible',
+    cors: 'enabled',
+    env: {
+      clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
+      clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
+      redirectUri: process.env.XERO_REDIRECT_URI,
+      frontend: process.env.FRONTEND_URL
+    }
+  });
 });
 
 app.get('/auth/test', (req, res) => {
