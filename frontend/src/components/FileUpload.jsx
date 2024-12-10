@@ -29,7 +29,7 @@ export function FileUpload({ onFileSelected, accept = '.csv', label = 'Upload CS
                  hover:border-blue-500 hover:bg-blue-50 transition-colors
                  flex items-center justify-center gap-2 w-full"
       >
-        {label}
+        + {label}
       </button>
     </div>
   );
