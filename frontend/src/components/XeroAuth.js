@@ -6,53 +6,54 @@ const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleConnect = async () => {
-    console.log('Connect button clicked'); // Add this line at the start
+    console.log('Button clicked - starting Xero connection process');
     setIsLoading(true);
     setError(null);
     
     try {
+      // Log environment variable
+      console.log('Current environment:', {
+        NODE_ENV: process.env.NODE_ENV,
+        API_URL: process.env.REACT_APP_API_URL
+      });
+
+      // Construct URL
       const apiUrl = `${process.env.REACT_APP_API_URL}/auth/xero`;
-      console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
-      console.log('Full API URL:', apiUrl);
-      
-      const response = await axios.get(apiUrl, {
+      console.log('Attempting to connect to:', apiUrl);
+
+      // Make request
+      console.log('Making API request...');
+      const response = await axios({
+        method: 'get',
+        url: apiUrl,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
-        },
-        withCredentials: true
-      });
-      console.log('Full Response:', response);
-      
-      if (response?.data?.url) {
-        console.log('Redirecting to:', response.data.url);
-        window.location.href = response.data.url;
-      } else {
-        console.error('Invalid response:', response);
-        throw new Error('No valid authorization URL received');
-      }
-    } catch (error) {
-      console.error('Detailed Error:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers
         }
       });
       
-      let errorMessage = 'Failed to connect to Xero. ';
-      if (error.response?.status === 500) {
-        errorMessage += 'Server error occurred. Please try again later.';
-      } else if (error.response?.status === 403) {
-        errorMessage += 'CORS error. Please check configuration.';
+      console.log('Response received:', response);
+
+      if (response?.data?.url) {
+        const redirectUrl = response.data.url;
+        console.log('Redirect URL received:', redirectUrl);
+        window.location.href = redirectUrl;
       } else {
-        errorMessage += error.response?.data?.error || error.message;
+        console.error('Invalid response structure:', response);
+        throw new Error('No authorization URL received from server');
       }
+    } catch (error) {
+      console.error('Connection error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method
+        }
+      });
       
-      setError(errorMessage);
+      setError(error.response?.data?.error || error.message || 'Failed to connect to Xero');
     } finally {
       setIsLoading(false);
     }
