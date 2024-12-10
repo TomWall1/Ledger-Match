@@ -6,6 +6,7 @@ const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleConnect = async () => {
+    console.log('Connect button clicked'); // Add this line at the start
     setIsLoading(true);
     setError(null);
     
