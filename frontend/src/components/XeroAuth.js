@@ -6,38 +6,32 @@ const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleConnect = async () => {
-    console.log('Button clicked - starting Xero connection process');
+    console.log('Button clicked - starting connection');
     setIsLoading(true);
     setError(null);
     
     try {
-      console.log('Current environment:', {
-        NODE_ENV: process.env.NODE_ENV,
-        API_URL: process.env.REACT_APP_API_URL
-      });
-
       const apiUrl = `${process.env.REACT_APP_API_URL}/auth/xero`;
-      console.log('Attempting to connect to:', apiUrl);
+      console.log('Making request to:', apiUrl);
 
       const response = await axios({
         method: 'get',
         url: apiUrl,
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         }
       });
       
-      console.log('Response received:', response);
+      console.log('Response:', response);
 
       if (response?.data?.url) {
         window.location.href = response.data.url;
       } else {
-        throw new Error('No authorization URL received from server');
+        throw new Error('No authorization URL received');
       }
     } catch (error) {
-      console.error('Connection error:', error);
-      setError(error.response?.data?.error || error.message || 'Failed to connect to Xero');
+      console.error('Error:', error);
+      setError('Failed to connect to Xero. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -49,9 +43,6 @@ const XeroAuth = () => {
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
           Connect to Xero
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Connect your Xero account to sync your financial data
-        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
