@@ -29,21 +29,39 @@ app.use(cors({
     'https://ledger-match-9knq3j55o-toms-projects-c3abf80c.vercel.app',
     'https://ledger-match-5y3c9ltn2-toms-projects-c3abf80c.vercel.app'
   ],
-  methods: ['POST', 'GET', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'Origin', 'X-Requested-With'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+  ],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  credentials: true,
+  credentials: false,
   maxAge: 3600
 }));
 
-// Add pre-flight OPTIONS handling
+// Handle preflight requests
 app.options('*', cors());
+
+// Add headers middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://ledger-match.vercel.app');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  next();
+});
 
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Test endpoint for Xero
+// Test endpoints
+app.get('/test-cors', (req, res) => {
+  res.json({ message: 'CORS is working' });
+});
+
 app.get('/auth/test', (req, res) => {
   res.json({ 
     status: 'Xero routes accessible',
