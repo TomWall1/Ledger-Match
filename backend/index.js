@@ -20,7 +20,7 @@ if (!fs.existsSync('uploads')) {
 
 // Enable CORS with specific options
 app.use(cors({
-  origin: 'https://ledger-match.vercel.app', // Simplified to single origin
+  origin: 'https://ledger-match.vercel.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
   credentials: false
@@ -29,7 +29,7 @@ app.use(cors({
 // Handle OPTIONS preflight requests
 app.options('*', cors());
 
-// Add headers middleware for additional CORS security
+// Add headers middleware
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', 'https://ledger-match.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -50,7 +50,7 @@ app.get('/', (req, res) => {
   res.json({ status: 'API is running' });
 });
 
-// Test CORS endpoint
+// Test endpoints
 app.get('/test-cors', (req, res) => {
   res.json({ 
     message: 'CORS is working',
@@ -60,7 +60,6 @@ app.get('/test-cors', (req, res) => {
   });
 });
 
-// Test auth endpoint
 app.get('/auth/test', (req, res) => {
   res.json({ 
     status: 'Xero routes accessible',
@@ -73,22 +72,6 @@ app.get('/auth/test', (req, res) => {
     }
   });
 });
-
-app.get('/auth/test', (req, res) => {
-  res.json({ 
-    status: 'Xero routes accessible',
-    cors: 'enabled',
-    env: {
-      clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
-      clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
-      redirectUri: process.env.XERO_REDIRECT_URI,
-      frontend: process.env.FRONTEND_URL
-    }
-  });
-});
-
-// Mount the Xero auth routes
-app.use('/auth', xeroRoutes);
 
 // Helper function to clean amount values
 const cleanAmount = (amountStr) => {
@@ -248,20 +231,6 @@ const analyzeTransactions = (company1Data, company2Data) => {
     }
   };
 };
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({ status: 'API is running' });
-});
-
-// Xero configuration endpoint
-app.get('/api/xero/config', (req, res) => {
-  res.json({
-    clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
-    clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
-    redirectUri: process.env.XERO_REDIRECT_URI,
-  });
-});
 
 // CSV matching endpoint
 app.post('/match', upload.fields([
