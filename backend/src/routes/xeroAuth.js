@@ -3,7 +3,7 @@ import { xeroClient } from '../config/xero.js';
 const router = express.Router();
 
 // Add this new route for initiating Xero OAuth flow
-router.get('/xero', async (req, res) => {
+router.post('/xero/callback', async (req, res) => {
   try {
     console.log('Initiating Xero OAuth flow...');
     const consentUrl = await xeroClient.buildConsentUrl();
