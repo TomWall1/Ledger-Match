@@ -75,6 +75,17 @@ module.exports = {
       }
     },
   },
+  corePlugins: {
+    preflight: true,
+    container: true,
+    accessibility: true,
+    icons: false // Explicitly disable icon handling
+  },
   plugins: [],
+  future: {
+    removeDeprecatedGapUtilities: true,
+    purgeLayersByDefault: true,
+    defaultLineHeights: true,
+    standardFontWeights: true,
+  }
 }
-
