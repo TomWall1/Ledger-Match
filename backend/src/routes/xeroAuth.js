@@ -4,7 +4,7 @@ import { xeroClient } from '../config/xero.js';
 const router = express.Router();
 
 // Initiate Xero OAuth flow at /auth/xero
-router.get('/xero', async (req, res) => {
+router.post('/xero/callback', async (req, res) => {
   try {
     console.log('Initiating Xero OAuth flow...', {
       clientId: process.env.XERO_CLIENT_ID ? 'Set' : 'Missing',
