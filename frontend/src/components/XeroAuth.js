@@ -6,23 +6,41 @@ const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleConnect = async () => {
+    console.log('Button clicked - start');
     setIsLoading(true);
     setError(null);
+    
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/auth/xero`);
+      const apiUrl = `${process.env.REACT_APP_API_URL}/auth/xero`;
+      console.log('Making request to:', apiUrl);
+
+      const response = await axios({
+        method: 'get',
+        url: apiUrl,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
+      console.log('Response received:', response);
+
       if (response?.data?.url) {
+        console.log('Redirecting to:', response.data.url);
         window.location.href = response.data.url;
       } else {
         throw new Error('No authorization URL received');
       }
     } catch (error) {
-      console.error('Error:', error);
-      setError('Failed to connect to Xero. Please try again.');
+      console.error('Connection error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      setError('Failed to connect to Xero: ' + error.message);
     } finally {
       setIsLoading(false);
     }
-  };
+};
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
