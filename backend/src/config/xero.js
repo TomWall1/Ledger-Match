@@ -19,4 +19,6 @@ console.log('Creating Xero client with config:', {
   scopes: config.scopes
 });
 
-export const xeroClient = new XeroClient(config);
+const xeroClient = new XeroClient(config);
+
+export { xeroClient, generateState as getState };
