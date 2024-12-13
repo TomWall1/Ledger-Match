@@ -10,20 +10,19 @@ const XeroCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       const code = searchParams.get('code');
-      console.log('Auth code received from Xero:', code);
+      const state = searchParams.get('state');
       
+      console.log('Received from Xero:', { code, state });
+
       if (!code) {
         setError('No authorization code received');
         return;
       }
 
       try {
-        const apiUrl = `${process.env.REACT_APP_API_URL}/auth/xero/callback`;
-        console.log('Making callback request to:', apiUrl);
-        console.log('Sending code:', code);
-
-        const response = await axios.post(apiUrl, 
-          { code },
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/auth/xero/callback`,
+          { code, state },
           {
             headers: {
               'Content-Type': 'application/json'
@@ -39,11 +38,7 @@ const XeroCallback = () => {
           throw new Error('Failed to complete Xero connection');
         }
       } catch (error) {
-        console.error('Full error details:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status
-        });
+        console.error('Error details:', error);
         setError(error.response?.data?.details || error.message);
       }
     };
@@ -55,14 +50,12 @@ const XeroCallback = () => {
     <div className="p-4">
       <h2 className="text-2xl font-bold mb-4">Connecting to Xero...</h2>
       
-      {error && (
+      {error ? (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p className="font-bold">Error connecting to Xero:</p>
           <p>{error}</p>
         </div>
-      )}
-
-      {!error && (
+      ) : (
         <p>Please wait while we complete your connection to Xero.</p>
       )}
     </div>
