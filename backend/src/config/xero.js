@@ -1,31 +1,37 @@
 import { XeroClient } from 'xero-node';
 
-const xeroConfig = {
+const config = {
   clientId: process.env.XERO_CLIENT_ID,
   clientSecret: process.env.XERO_CLIENT_SECRET,
   redirectUris: [process.env.XERO_REDIRECT_URI],
   grantType: 'authorization_code',
-  scopes: process.env.XERO_SCOPES?.split(' ') || [
-    'offline_access',
-    'accounting.transactions.read',
-    'accounting.contacts.read'
-  ]
+  state: 'randomState',
+  scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read']
 };
 
-console.log('Xero Config:', {
+// Log configuration for debugging
+console.log('Initializing Xero client with config:', {
   clientId: process.env.XERO_CLIENT_ID ? 'Set' : 'Missing',
   clientSecret: process.env.XERO_CLIENT_SECRET ? 'Set' : 'Missing',
   redirectUri: process.env.XERO_REDIRECT_URI,
-  scopes: xeroConfig.scopes,
-  grantType: xeroConfig.grantType
+  scopes: config.scopes,
+  grantType: config.grantType
 });
 
-const xeroClient = new XeroClient(xeroConfig);
+const xeroClient = new XeroClient({
+  ...config,
+  httpTimeout: 30000,
+});
 
-// Add helper method for token exchange
-xeroClient.handleCallback = async (code) => {
+// Add helper methods for token management
+xeroClient.getTokenFromCode = async (code) => {
   try {
-    const tokenSet = await xeroClient.apiCallback(code);
+    const tokenSet = await xeroClient.oauth2Client.getToken({
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: process.env.XERO_REDIRECT_URI
+    });
+    
     console.log('Token exchange successful:', !!tokenSet);
     return tokenSet;
   } catch (error) {
@@ -34,4 +40,5 @@ xeroClient.handleCallback = async (code) => {
   }
 };
 
+// Export configured client
 export { xeroClient };
