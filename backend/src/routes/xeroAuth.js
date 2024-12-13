@@ -24,16 +24,11 @@ router.post('/xero/callback', async (req, res) => {
       throw new Error('No authorization code received');
     }
 
-    // Try direct token exchange
-    const response = await xeroClient.oauth2Client.getToken({
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: process.env.XERO_REDIRECT_URI
-    });
+    // Use apiCallback instead of oauth2Client.getToken
+    const tokenSet = await xeroClient.apiCallback(code);
+    console.log('Token response:', tokenSet ? 'Success' : 'Failed');
 
-    console.log('Token response:', response ? 'Success' : 'Failed');
-
-    if (!response || !response.token) {
+    if (!tokenSet) {
       throw new Error('Failed to exchange token');
     }
 
@@ -47,7 +42,6 @@ router.post('/xero/callback', async (req, res) => {
   }
 });
 
-// Organizations route - matches /auth/xero/organizations
 router.get('/xero/organizations', async (req, res) => {
   try {
     const tenants = await xeroClient.updateTenants();
@@ -61,5 +55,4 @@ router.get('/xero/organizations', async (req, res) => {
   }
 });
 
-// Single export at the end
 export default router;
