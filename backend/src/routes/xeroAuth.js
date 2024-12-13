@@ -30,20 +30,30 @@ router.post('/xero/callback', async (req, res) => {
       throw new Error('No authorization code received from Xero');
     }
 
-    console.log('Exchanging auth code for tokens with config:', {
-      clientId: process.env.XERO_CLIENT_ID ? 'Set' : 'Missing',
-      clientSecret: process.env.XERO_CLIENT_SECRET ? 'Set' : 'Missing',
-      redirectUri: process.env.XERO_REDIRECT_URI
+    console.log('Starting token exchange process...');
+    
+    // Create a new client instance for the token exchange
+    const tokenClient = new XeroClient({
+      clientId: process.env.XERO_CLIENT_ID,
+      clientSecret: process.env.XERO_CLIENT_SECRET,
+      redirectUris: [process.env.XERO_REDIRECT_URI],
+      scopes: process.env.XERO_SCOPES.split(' '),
+      state: process.env.XERO_STATE // optional
     });
 
-    const tokenSet = await xeroClient.apiCallback(code);
-    console.log('Token response received:', tokenSet ? 'Success' : 'Failed');
+    console.log('Attempting to exchange code for tokens...');
+    const tokenResponse = await tokenClient.getTokenSet(code);
     
-    if (!tokenSet) {
-      throw new Error('Failed to obtain access token from Xero');
+    console.log('Token response:', {
+      hasAccessToken: !!tokenResponse.access_token,
+      hasRefreshToken: !!tokenResponse.refresh_token,
+      expiresIn: tokenResponse.expires_in
+    });
+
+    if (!tokenResponse.access_token) {
+      throw new Error('No access token received from Xero');
     }
 
-    console.log('Successfully obtained Xero tokens');
     res.json({ success: true });
   } catch (error) {
     console.error('Detailed error in Xero callback:', error);
