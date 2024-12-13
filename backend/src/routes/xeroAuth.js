@@ -7,7 +7,7 @@ router.get('/xero', async (req, res) => {
   try {
     console.log('Initiating Xero OAuth flow...');
     const state = getState();
-    const consentUrl = await xeroClient.buildConsentUrl({ state });
+    const consentUrl = await xeroClient.buildConsentUrl();
     console.log('Generated URL:', consentUrl);
     res.json({ url: consentUrl, state });
   } catch (error) {
@@ -25,23 +25,14 @@ router.post('/xero/callback', async (req, res) => {
       throw new Error('No authorization code received');
     }
 
-    try {
-      // First try the token exchange
-      const tokenResponse = await xeroClient.getTokenSet(code);
-      console.log('Token exchange successful:', !!tokenResponse);
+    const tokenSet = await xeroClient.apiCallback(code);
+    console.log('Token exchange response:', !!tokenSet);
 
-      if (!tokenResponse) {
-        throw new Error('No token response received');
-      }
-
-      // Set the token
-      await xeroClient.setTokenSet(tokenResponse);
-      
-      res.json({ success: true });
-    } catch (tokenError) {
-      console.error('Token exchange error:', tokenError);
-      throw tokenError;
+    if (!tokenSet) {
+      throw new Error('No token response received');
     }
+
+    res.json({ success: true });
   } catch (error) {
     console.error('Callback error:', error);
     res.status(500).json({ 
