@@ -18,16 +18,30 @@ router.get('/xero', async (req, res) => {
 
 router.post('/xero/callback', async (req, res) => {
   try {
-    const { code, state } = req.body;
-    console.log('Received callback data:', { code, state });
+    const { code } = req.body;
+    console.log('Received callback with code:', code);
 
     if (!code) {
       throw new Error('No authorization code received');
     }
 
-    const tokenSet = await xeroClient.apiCallback(code, { state });
-    console.log('Token exchange successful');
-    res.json({ success: true });
+    try {
+      // First try the token exchange
+      const tokenResponse = await xeroClient.getTokenSet(code);
+      console.log('Token exchange successful:', !!tokenResponse);
+
+      if (!tokenResponse) {
+        throw new Error('No token response received');
+      }
+
+      // Set the token
+      await xeroClient.setTokenSet(tokenResponse);
+      
+      res.json({ success: true });
+    } catch (tokenError) {
+      console.error('Token exchange error:', tokenError);
+      throw tokenError;
+    }
   } catch (error) {
     console.error('Callback error:', error);
     res.status(500).json({ 
