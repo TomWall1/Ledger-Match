@@ -47,8 +47,6 @@ router.post('/xero/callback', async (req, res) => {
   }
 });
 
-export default router;
-
 // Organizations route - matches /auth/xero/organizations
 router.get('/xero/organizations', async (req, res) => {
   try {
@@ -63,4 +61,5 @@ router.get('/xero/organizations', async (req, res) => {
   }
 });
 
+// Single export at the end
 export default router;
