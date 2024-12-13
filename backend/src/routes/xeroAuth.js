@@ -23,23 +23,33 @@ router.get('/xero', async (req, res) => {
 // Callback route - matches /auth/xero/callback
 router.post('/xero/callback', async (req, res) => {
   try {
-    console.log('Received callback from Xero with body:', req.body);
+    console.log('Received callback with body:', req.body);
     const { code } = req.body;
     
     if (!code) {
       throw new Error('No authorization code received from Xero');
     }
 
-    console.log('Exchanging auth code for tokens...');
+    console.log('Exchanging auth code for tokens with config:', {
+      clientId: process.env.XERO_CLIENT_ID ? 'Set' : 'Missing',
+      clientSecret: process.env.XERO_CLIENT_SECRET ? 'Set' : 'Missing',
+      redirectUri: process.env.XERO_REDIRECT_URI
+    });
+
     const tokenSet = await xeroClient.apiCallback(code);
+    console.log('Token response received:', tokenSet ? 'Success' : 'Failed');
     
+    if (!tokenSet) {
+      throw new Error('Failed to obtain access token from Xero');
+    }
+
     console.log('Successfully obtained Xero tokens');
     res.json({ success: true });
   } catch (error) {
-    console.error('Error in Xero callback:', error);
+    console.error('Detailed error in Xero callback:', error);
     res.status(500).json({ 
       error: 'Failed to process Xero callback',
-      details: error.message 
+      details: error.message
     });
   }
 });
