@@ -27,7 +27,6 @@ router.post('/xero/callback', async (req, res) => {
 
     const tokenSet = await xeroClient.apiCallback(code, { state });
     console.log('Token exchange successful');
-
     res.json({ success: true });
   } catch (error) {
     console.error('Callback error:', error);
@@ -37,10 +36,6 @@ router.post('/xero/callback', async (req, res) => {
     });
   }
 });
-
-// [rest of your routes stay the same]
-
-export default router;
 
 router.get('/xero/organizations', async (req, res) => {
   try {
