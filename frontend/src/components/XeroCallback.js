@@ -34,8 +34,6 @@ const XeroCallback = () => {
 
         if (response.data.success) {
           navigate('/dashboard');
-        } else {
-          throw new Error('Failed to complete Xero connection');
         }
       } catch (error) {
         console.error('Error details:', error);
