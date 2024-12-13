@@ -1,40 +1,40 @@
 import express from 'express';
 import { xeroClient } from '../config/xero.js';
+
 const router = express.Router();
 
-// Initial connection route - matches /auth/xero
 router.get('/xero', async (req, res) => {
   try {
     console.log('Initiating Xero OAuth flow...');
     const consentUrl = await xeroClient.buildConsentUrl();
-    console.log('Generated consent URL:', consentUrl);
-    
-    // Send the consent URL back to the frontend
+    console.log('Generated URL:', consentUrl);
     res.json({ url: consentUrl });
   } catch (error) {
-    console.error('Error generating Xero consent URL:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate authorization URL',
-      details: error.message 
-    });
+    console.error('Error generating URL:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Callback route - matches /auth/xero/callback
 router.post('/xero/callback', async (req, res) => {
   try {
-    console.log('Received callback with body:', req.body);
     const { code } = req.body;
-    
+    console.log('Received auth code:', code);
+
     if (!code) {
-      throw new Error('No authorization code received from Xero');
+      throw new Error('No authorization code received');
     }
 
-    console.log('Starting token exchange with code:', code);
-    const tokenSet = await xeroClient.handleCallback(code);
-    
-    if (!tokenSet) {
-      throw new Error('Token exchange failed - no tokens received');
+    // Try direct token exchange
+    const response = await xeroClient.oauth2Client.getToken({
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: process.env.XERO_REDIRECT_URI
+    });
+
+    console.log('Token response:', response ? 'Success' : 'Failed');
+
+    if (!response || !response.token) {
+      throw new Error('Failed to exchange token');
     }
 
     res.json({ success: true });
@@ -42,10 +42,12 @@ router.post('/xero/callback', async (req, res) => {
     console.error('Callback error:', error);
     res.status(500).json({ 
       error: 'Failed to process Xero callback',
-      details: error.message
+      details: error.message 
     });
   }
 });
+
+export default router;
 
 // Organizations route - matches /auth/xero/organizations
 router.get('/xero/organizations', async (req, res) => {
