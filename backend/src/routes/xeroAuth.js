@@ -18,22 +18,39 @@ router.get('/xero', async (req, res) => {
 
 router.post('/xero/callback', async (req, res) => {
   try {
-    const { code, state } = req.body;
-    console.log('Received callback data:', { code, state });
+    const { code } = req.body;
+    console.log('Received callback with code:', code);
 
     if (!code) {
       throw new Error('No authorization code received');
     }
 
-    // Pass both code and state explicitly
-    const tokenResponse = await xeroClient.apiCallback(code, { 
-      state,
-      redirectUri: process.env.XERO_REDIRECT_URI 
-    });
+    try {
+      // Create token request parameters
+      const tokenParams = {
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: process.env.XERO_REDIRECT_URI
+      };
 
-    console.log('Token exchange successful:', !!tokenResponse);
-    
-    res.json({ success: true });
+      console.log('Attempting token exchange with params:', {
+        ...tokenParams,
+        client_id: process.env.XERO_CLIENT_ID ? 'Present' : 'Missing'
+      });
+
+      // Exchange code for tokens
+      const tokenSet = await xeroClient.getTokenSet(code);
+      console.log('Token exchange response:', !!tokenSet);
+
+      if (!tokenSet) {
+        throw new Error('No token response received');
+      }
+
+      res.json({ success: true });
+    } catch (tokenError) {
+      console.error('Token exchange error:', tokenError);
+      throw new Error(`Token exchange failed: ${tokenError.message}`);
+    }
   } catch (error) {
     console.error('Callback error:', error);
     res.status(500).json({ 
