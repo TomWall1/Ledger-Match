@@ -1,15 +1,15 @@
 import express from 'express';
-import { xeroClient, getState } from '../config/xero.js';
+import { xeroClient } from '../config/xero.js';
 
 const router = express.Router();
 
 router.get('/xero', async (req, res) => {
   try {
     console.log('Initiating Xero OAuth flow...');
-    const state = getState();
+    const state = new Date().getTime().toString();
     const consentUrl = await xeroClient.buildConsentUrl();
     console.log('Generated URL:', consentUrl);
-    res.json({ url: consentUrl, state });
+    res.json({ url: consentUrl });
   } catch (error) {
     console.error('Error generating URL:', error);
     res.status(500).json({ error: error.message });
@@ -18,7 +18,16 @@ router.get('/xero', async (req, res) => {
 
 router.post('/xero/callback', async (req, res) => {
   try {
-    const { code } = req.body;
+    // NEW DEBUGGING CODE - ADD THIS
+    console.log('Full request:', {
+      body: req.body,
+      headers: req.headers,
+      query: req.query,
+      params: req.params
+    });
+    // END NEW DEBUGGING CODE
+
+    const { code, state } = req.body;
     console.log('Received callback with code:', code);
 
     if (!code) {
@@ -26,20 +35,7 @@ router.post('/xero/callback', async (req, res) => {
     }
 
     try {
-      // Create token request parameters
-      const tokenParams = {
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: process.env.XERO_REDIRECT_URI
-      };
-
-      console.log('Attempting token exchange with params:', {
-        ...tokenParams,
-        client_id: process.env.XERO_CLIENT_ID ? 'Present' : 'Missing'
-      });
-
-      // Exchange code for tokens
-      const tokenSet = await xeroClient.getTokenSet(code);
+      const tokenSet = await xeroClient.apiCallback(code);
       console.log('Token exchange response:', !!tokenSet);
 
       if (!tokenSet) {
