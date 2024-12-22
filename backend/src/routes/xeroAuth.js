@@ -26,18 +26,20 @@ router.post('/xero/callback', async (req, res) => {
       throw new Error('No authorization code received');
     }
 
-    // Create token exchange parameters
-    const tokenParams = {
-      code: code,
-      grant_type: 'authorization_code',
-      redirect_uri: process.env.XERO_REDIRECT_URI
-    };
+    try {
+      // Use apiCallback directly
+      const tokenSet = await xeroClient.apiCallback(code);
+      console.log('Token exchange successful:', !!tokenSet);
 
-    // Try to exchange the code for tokens
-    const tokenSet = await xeroClient.oauth2Client.grant(tokenParams);
-    console.log('Token exchange successful:', !!tokenSet);
+      if (!tokenSet) {
+        throw new Error('Token exchange failed');
+      }
 
-    res.json({ success: true });
+      res.json({ success: true });
+    } catch (tokenError) {
+      console.error('Token exchange error:', tokenError);
+      throw new Error(`Token exchange failed: ${tokenError.message}`);
+    }
   } catch (error) {
     console.error('Callback error:', error);
     res.status(500).json({ 
