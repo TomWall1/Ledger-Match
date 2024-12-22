@@ -3,10 +3,10 @@ import { xeroClient } from '../config/xero.js';
 
 const router = express.Router();
 
+// This is the /xero route that gets called when users click "Connect to Xero"
 router.get('/xero', async (req, res) => {
   try {
     console.log('Initiating Xero OAuth flow...');
-    const state = new Date().getTime().toString();
     const consentUrl = await xeroClient.buildConsentUrl();
     console.log('Generated URL:', consentUrl);
     res.json({ url: consentUrl });
@@ -16,28 +16,28 @@ router.get('/xero', async (req, res) => {
   }
 });
 
+// This is the callback route that Xero calls after user authorizes
 router.post('/xero/callback', async (req, res) => {
   try {
-    const { code, state } = req.body;
-    console.log('Received callback data:', { code, state });
+    const { code } = req.body;
+    console.log('Received callback with code:', code);
 
     if (!code) {
       throw new Error('No authorization code received');
     }
 
-    try {
-      const tokenSet = await xeroClient.apiCallback(code, state);  // Pass both code and state
-      console.log('Token exchange response:', !!tokenSet);
+    // Create token exchange parameters
+    const tokenParams = {
+      code: code,
+      grant_type: 'authorization_code',
+      redirect_uri: process.env.XERO_REDIRECT_URI
+    };
 
-      if (!tokenSet) {
-        throw new Error('Token exchange failed');
-      }
+    // Try to exchange the code for tokens
+    const tokenSet = await xeroClient.oauth2Client.grant(tokenParams);
+    console.log('Token exchange successful:', !!tokenSet);
 
-      res.json({ success: true });
-    } catch (tokenError) {
-      console.error('Token exchange error:', tokenError);
-      throw new Error(`Token exchange failed: ${tokenError.message}`);
-    }
+    res.json({ success: true });
   } catch (error) {
     console.error('Callback error:', error);
     res.status(500).json({ 
@@ -47,6 +47,7 @@ router.post('/xero/callback', async (req, res) => {
   }
 });
 
+// This gets the list of Xero organizations
 router.get('/xero/organizations', async (req, res) => {
   try {
     const tenants = await xeroClient.updateTenants();
