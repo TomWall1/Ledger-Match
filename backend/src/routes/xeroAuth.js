@@ -19,8 +19,19 @@ router.get('/xero', async (req, res) => {
 // This is the callback route that Xero calls after user authorizes
 router.post('/xero/callback', async (req, res) => {
   try {
+    // Debug: Log everything we receive
+    console.log('Full request:', {
+      body: req.body,
+      query: req.query,
+      headers: {
+        host: req.headers.host,
+        origin: req.headers.origin,
+        referer: req.headers.referer
+      }
+    });
+
     const { code } = req.body;
-    console.log('Received callback with code:', code);
+    console.log('Processing code:', code);
 
     if (!code) {
       throw new Error('No authorization code received');
