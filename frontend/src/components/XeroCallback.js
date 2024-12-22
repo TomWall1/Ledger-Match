@@ -7,8 +7,11 @@ const XeroCallback = () => {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+ useEffect(() => {
   const handleCallback = async () => {
+    // Debug: Log the full URL and all parameters
+    console.log('Full callback URL:', window.location.href);
+    console.log('All search params:', Object.fromEntries([...searchParams.entries()]));
     const code = searchParams.get('code');
     const state = searchParams.get('state');  // Get state from URL
     console.log('Received from Xero:', { code, state });
