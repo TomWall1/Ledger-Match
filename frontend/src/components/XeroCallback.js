@@ -7,43 +7,49 @@ const XeroCallback = () => {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
 
-useEffect(() => {
-  const handleCallback = async () => {
-    const code = searchParams.get('code');
-    const state = searchParams.get('state'); // Get state from URL
+  useEffect(() => {
+    const handleCallback = async () => {
+      // NEW DEBUGGING CODE - ADD THIS
+      console.log('All URL parameters:', Object.fromEntries([...searchParams.entries()]));
+      console.log('Full URL:', window.location.href);
+      // END NEW DEBUGGING CODE
 
-    console.log('Received from Xero:', { code, state });
+      const code = searchParams.get('code');
+      const state = searchParams.get('state');
+      console.log('Received code from Xero:', code);
 
-    if (!code) {
-      setError('No authorization code received');
-      return;
-    }
-
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/auth/xero/callback`,
-        { code, state }, // Send both code and state
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('Callback response:', response.data);
-
-      if (response.data.success) {
-        navigate('/dashboard');
+      if (!code) {
+        setError('No authorization code received');
+        return;
       }
-    } catch (error) {
-      console.error('Error details:', error);
-      const errorMessage = error.response?.data?.details || error.message;
-      setError(errorMessage);
-    }
-  };
 
-  handleCallback();
-}, [searchParams, navigate]);  
+      try {
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/auth/xero/callback`,
+          { code, state },
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        console.log('Callback response:', response.data);
+
+        if (response.data.success) {
+          navigate('/dashboard');
+        } else {
+          throw new Error('Failed to complete Xero connection');
+        }
+      } catch (error) {
+        console.error('Error details:', error);
+        const errorMessage = error.response?.data?.details || error.message;
+        setError(errorMessage);
+      }
+    };
+
+    handleCallback();
+  }, [searchParams, navigate]);
 
   return (
     <div className="p-4">
