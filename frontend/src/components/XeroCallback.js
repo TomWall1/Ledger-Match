@@ -10,9 +10,7 @@ const XeroCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       const code = searchParams.get('code');
-      const state = searchParams.get('state');
-      
-      console.log('Received from Xero:', { code, state });
+      console.log('Received code from Xero:', code);
 
       if (!code) {
         setError('No authorization code received');
@@ -22,7 +20,7 @@ const XeroCallback = () => {
       try {
         const response = await axios.post(
           `${process.env.REACT_APP_API_URL}/auth/xero/callback`,
-          { code, state },
+          { code },
           {
             headers: {
               'Content-Type': 'application/json'
@@ -30,14 +28,17 @@ const XeroCallback = () => {
           }
         );
 
-        console.log('Callback response:', response);
+        console.log('Callback response:', response.data);
 
         if (response.data.success) {
           navigate('/dashboard');
+        } else {
+          throw new Error('Failed to complete Xero connection');
         }
       } catch (error) {
         console.error('Error details:', error);
-        setError(error.response?.data?.details || error.message);
+        const errorMessage = error.response?.data?.details || error.message;
+        setError(errorMessage);
       }
     };
 
