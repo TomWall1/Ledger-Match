@@ -25,14 +25,20 @@ router.post('/xero/callback', async (req, res) => {
       throw new Error('No authorization code received');
     }
 
-    if (!state) {
-      throw new Error('No state parameter received');
+    try {
+      // Call apiCallback without state parameter
+      const tokenSet = await xeroClient.apiCallback(code);
+      console.log('Token exchange response:', tokenSet ? 'Success' : 'Failed');
+
+      if (!tokenSet) {
+        throw new Error('Token exchange failed');
+      }
+
+      res.json({ success: true });
+    } catch (tokenError) {
+      console.error('Token error:', tokenError);
+      throw new Error(`Token exchange failed: ${tokenError.message}`);
     }
-
-    const tokenSet = await xeroClient.apiCallback(code, state);
-    console.log('Token exchange successful');
-
-    res.json({ success: true });
   } catch (error) {
     console.error('Callback error:', error);
     res.status(500).json({ 
