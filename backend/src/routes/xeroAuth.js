@@ -28,23 +28,30 @@ router.post('/xero/callback', async (req, res) => {
     try {
       console.log('Starting token exchange process...');
       
-      // Exchange the authorization code for tokens
-      await xeroClient.initialize();
-      const accessToken = await xeroClient.refreshWithRefreshToken(
-        process.env.XERO_CLIENT_ID,
-        process.env.XERO_CLIENT_SECRET,
-        code
-      );
-      
-      console.log('Access token received:', !!accessToken);
+      // Create a new client instance for token exchange
+      const tokenClient = new XeroClient({
+        clientId: process.env.XERO_CLIENT_ID,
+        clientSecret: process.env.XERO_CLIENT_SECRET,
+        redirectUris: [process.env.XERO_REDIRECT_URI],
+        scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read']
+      });
 
-      if (!accessToken) {
-        throw new Error('Failed to get access token');
+      // Exchange the code for tokens
+      const response = await tokenClient.apiCallback(code);
+      console.log('Token exchange response received:', {
+        success: !!response,
+        hasAccessToken: !!response?.accessToken,
+        hasRefreshToken: !!response?.refreshToken,
+        hasExpiry: !!response?.expires_in
+      });
+
+      if (!response) {
+        throw new Error('No response from token exchange');
       }
 
       // Get connected tenants
       console.log('Getting tenants...');
-      const tenants = await xeroClient.updateTenants();
+      const tenants = await tokenClient.updateTenants();
       console.log('Tenants received:', tenants);
 
       res.json({ 
@@ -60,7 +67,7 @@ router.post('/xero/callback', async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to process Xero callback',
       details: error.message,
-      stack: error.stack
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
