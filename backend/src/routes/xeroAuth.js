@@ -3,82 +3,76 @@ import { XeroClient } from 'xero-node';
 
 const router = express.Router();
 
+// Helper function to create Xero client
+const createXeroClient = () => {
+  const config = {
+    clientId: process.env.XERO_CLIENT_ID,
+    clientSecret: process.env.XERO_CLIENT_SECRET,
+    redirectUris: [process.env.XERO_REDIRECT_URI],
+    scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read'],
+    state: 'xero-auth'
+  };
+
+  console.log('Creating Xero client with config:', {
+    clientId: config.clientId ? 'Present' : 'Missing',
+    clientSecret: config.clientSecret ? 'Present' : 'Missing',
+    redirectUri: config.redirectUris[0],
+    scopes: config.scopes
+  });
+
+  return new XeroClient(config);
+};
+
 router.get('/xero', async (req, res) => {
   try {
-    console.log('Initiating Xero OAuth flow with config:', {
-      clientId: process.env.XERO_CLIENT_ID ? 'Present' : 'Missing',
-      clientSecret: process.env.XERO_CLIENT_SECRET ? 'Present' : 'Missing',
-      redirectUri: process.env.XERO_REDIRECT_URI
-    });
-
-    const xero = new XeroClient({
-      clientId: process.env.XERO_CLIENT_ID,
-      clientSecret: process.env.XERO_CLIENT_SECRET,
-      redirectUris: [process.env.XERO_REDIRECT_URI],
-      scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read']
-    });
-
+    const xero = createXeroClient();
+    console.log('Building consent URL...');
     const consentUrl = await xero.buildConsentUrl();
     console.log('Generated URL:', consentUrl);
     res.json({ url: consentUrl });
   } catch (error) {
-    console.error('Error generating URL:', error);
+    console.error('Error generating consent URL:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 router.post('/xero/callback', async (req, res) => {
-  console.log('Callback received:', {
-    body: req.body,
-    headers: req.headers,
-    env: {
-      clientId: process.env.XERO_CLIENT_ID ? 'Present' : 'Missing',
-      clientSecret: process.env.XERO_CLIENT_SECRET ? 'Present' : 'Missing',
-      redirectUri: process.env.XERO_REDIRECT_URI
-    }
-  });
-
   try {
+    console.log('Callback received:', req.body);
     const { code } = req.body;
+
     if (!code) {
+      console.error('No authorization code in request');
       throw new Error('No authorization code received');
     }
 
     try {
-      const xero = new XeroClient({
-        clientId: process.env.XERO_CLIENT_ID,
-        clientSecret: process.env.XERO_CLIENT_SECRET,
-        redirectUris: [process.env.XERO_REDIRECT_URI],
-        scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read']
+      const xero = createXeroClient();
+      console.log('Exchanging code for token...');
+
+      // First try to initialize the client
+      await xero.initialize();
+      console.log('Client initialized');
+
+      // Then use apiCallback
+      const tokens = await xero.apiCallback(code);
+      console.log('Token exchange complete', {
+        hasAccessToken: !!tokens?.access_token,
+        hasRefreshToken: !!tokens?.refresh_token,
+        expiresIn: tokens?.expires_in
       });
 
-      console.log('Attempting token exchange...');
-      
-      // Build the token request
-      const tokenRequest = {
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: process.env.XERO_REDIRECT_URI
-      };
-      
-      console.log('Token request:', tokenRequest);
-      
-      // Exchange the code for tokens using apiCallback
-      const tokenSet = await xero.apiCallback(code);
-      
-      console.log('Token response:', {
-        hasAccessToken: !!tokenSet?.access_token,
-        hasRefreshToken: !!tokenSet?.refresh_token,
-        expiresIn: tokenSet?.expires_in
-      });
-
-      if (!tokenSet?.access_token) {
-        throw new Error('No access token received');
+      if (!tokens?.access_token) {
+        throw new Error('No access token in response');
       }
 
-      console.log('Getting tenants...');
-      const tenants = await xero.updateTenants(false);
-      console.log('Tenants retrieved:', tenants?.length || 0);
+      // Set the token
+      await xero.setTokenSet(tokens);
+      console.log('Token set in client');
+
+      // Test the connection by getting tenants
+      const tenants = await xero.updateTenants();
+      console.log('Retrieved tenants:', tenants?.length || 0);
 
       res.json({ 
         success: true,
@@ -86,17 +80,18 @@ router.post('/xero/callback', async (req, res) => {
       });
     } catch (tokenError) {
       console.error('Token exchange error:', {
+        name: tokenError.name,
         message: tokenError.message,
-        stack: tokenError.stack,
-        response: tokenError.response?.data
+        response: tokenError.response?.data,
+        stack: tokenError.stack
       });
       throw tokenError;
     }
   } catch (error) {
     console.error('Callback processing error:', {
+      name: error.name,
       message: error.message,
-      stack: error.stack,
-      type: error.constructor.name
+      stack: error.stack
     });
     res.status(500).json({ 
       error: 'Failed to process Xero callback',
@@ -108,14 +103,8 @@ router.post('/xero/callback', async (req, res) => {
 
 router.get('/verify', async (req, res) => {
   try {
-    const xero = new XeroClient({
-      clientId: process.env.XERO_CLIENT_ID,
-      clientSecret: process.env.XERO_CLIENT_SECRET,
-      redirectUris: [process.env.XERO_REDIRECT_URI],
-      scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read']
-    });
-
-    const tenants = await xero.updateTenants(false);
+    const xero = createXeroClient();
+    const tenants = await xero.updateTenants();
     res.json({ authenticated: true });
   } catch (error) {
     res.status(401).json({ authenticated: false });
