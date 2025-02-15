@@ -5,6 +5,7 @@ export const AuthUtils = {
     try {
       const authState = {
         isAuthenticated: state.isAuthenticated,
+        tenants: state.tenants,
         lastChecked: new Date().toISOString(),
       };
       sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
@@ -35,10 +36,18 @@ export const AuthUtils = {
 
   async verifyAuth() {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/verify`, {
-        credentials: 'include'
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+      const response = await fetch(`${apiUrl}/auth/verify`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
       });
       
+      if (!response.ok) {
+        return false;
+      }
+
       const result = await response.json();
       const isAuthenticated = result.authenticated;
       this.setAuthState({ isAuthenticated });
