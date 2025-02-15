@@ -4,6 +4,30 @@ import { xeroClient } from '../config/xero.js';
 
 const router = express.Router();
 
+// Add credential verification endpoint
+router.get('/verify-credentials', (req, res) => {
+  const clientId = process.env.XERO_CLIENT_ID;
+  const clientSecret = process.env.XERO_CLIENT_SECRET;
+  const redirectUri = process.env.XERO_REDIRECT_URI;
+
+  // Only show first/last 4 characters of secret
+  const maskedSecret = clientSecret ? 
+    `${clientSecret.substring(0, 4)}...${clientSecret.substring(clientSecret.length - 4)}` : 
+    'Not set';
+
+  res.json({
+    credentials: {
+      clientId: clientId || 'Not set',
+      clientSecret: maskedSecret,
+      redirectUri: redirectUri || 'Not set'
+    },
+    expectedValues: {
+      clientId: '1115F9C9FB2044418FCF3CB4A5AB2503',
+      redirectUri: 'https://ledger-match.vercel.app/auth/xero/callback'
+    }
+  });
+});
+
 router.get('/xero', async (req, res) => {
   try {
     console.log('Initiating Xero OAuth flow...');
@@ -27,6 +51,11 @@ router.post('/xero/callback', async (req, res) => {
 
     try {
       console.log('Starting token exchange process...');
+      console.log('Using credentials:', {
+        clientId: process.env.XERO_CLIENT_ID ? 'Set' : 'Missing',
+        clientSecret: process.env.XERO_CLIENT_SECRET ? 'Starts with: ' + process.env.XERO_CLIENT_SECRET.substring(0, 4) : 'Missing',
+        redirectUri: process.env.XERO_REDIRECT_URI
+      });
       
       // Create a new client instance for token exchange
       const tokenClient = new XeroClient({
