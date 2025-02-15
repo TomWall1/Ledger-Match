@@ -75,7 +75,7 @@ router.post('/xero/callback', async (req, res) => {
       console.log('Token response:', {
         status: response.status,
         statusText: response.statusText,
-        headers: response.headers,
+        headers: Object.fromEntries(response.headers.entries()),
         body: responseText
       });
 
@@ -83,23 +83,33 @@ router.post('/xero/callback', async (req, res) => {
         throw new Error(`Token request failed: ${response.status} ${responseText}`);
       }
 
+      // Parse token response
       const tokenData = JSON.parse(responseText);
-      if (!tokenData.access_token) {
-        throw new Error('No access token in response');
-      }
-
       console.log('Token data received:', {
         hasAccessToken: !!tokenData.access_token,
         hasRefreshToken: !!tokenData.refresh_token,
         expiresIn: tokenData.expires_in
       });
 
-      // Save the tokens
-      await xero.setTokenSet(tokenData);
-      console.log('Token set saved');
+      if (!tokenData.access_token) {
+        throw new Error('No access token in response');
+      }
 
-      // Get the tenants
-      const tenants = await xero.updateTenants();
+      // Get tenants using a direct API call
+      console.log('Fetching connections...');
+      const tenantsResponse = await fetch('https://api.xero.com/connections', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!tenantsResponse.ok) {
+        const errorText = await tenantsResponse.text();
+        throw new Error(`Failed to get tenants: ${tenantsResponse.status} ${errorText}`);
+      }
+
+      const tenants = await tenantsResponse.json();
       console.log('Tenants retrieved:', tenants?.length || 0);
 
       res.json({
