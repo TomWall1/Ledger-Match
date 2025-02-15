@@ -31,9 +31,9 @@ const XeroCallback = () => {
         const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
         console.log('Sending code to backend:', { code, apiUrl });
 
-        const response = await axios.post(
-          `${apiUrl}/auth/xero/callback`,
-          { code },
+        // Change to GET request with code as query parameter
+        const response = await axios.get(
+          `${apiUrl}/auth/xero/callback?code=${encodeURIComponent(code)}`,
           {
             headers: {
               'Content-Type': 'application/json'
