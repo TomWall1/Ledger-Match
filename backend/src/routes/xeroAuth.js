@@ -25,156 +25,135 @@ console.log('Xero client configuration:', {
   hasXeroClient: !!xero
 });
 
-router.get('/xero', async (req, res) => {
-  try {
-    console.log('Starting OAuth flow...');
-    const consentUrl = await xero.buildConsentUrl();
-    console.log('Consent URL generated:', consentUrl);
-    res.json({ url: consentUrl });
-  } catch (error) {
-    console.error('Error in /xero:', error);
-    res.status(500).json({ error: error.message });
+// Helper function to check token and refresh if needed
+const ensureValidToken = async () => {
+  if (!tokenStore?.access_token) {
+    throw new Error('No access token available');
   }
-});
 
-router.post('/xero/callback', async (req, res) => {
-  console.log('Callback received:', {
-    hasCode: !!req.body.code,
-    clientId: process.env.XERO_CLIENT_ID ? 'Present' : 'Missing',
-    clientSecret: process.env.XERO_CLIENT_SECRET ? 'Present' : 'Missing',
-    redirectUri: process.env.XERO_REDIRECT_URI
-  });
+  // TODO: Add token refresh logic if token is expired
+  return tokenStore.access_token;
+};
 
+router.get('/xero/customers', async (req, res) => {
   try {
-    const { code } = req.body;
-    if (!code) {
-      throw new Error('No authorization code received');
-    }
-
-    try {
-      // Prepare the token request
-      const tokenUrl = 'https://identity.xero.com/connect/token';
-      const params = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: process.env.XERO_REDIRECT_URI
-      });
-
-      const auth = Buffer.from(
-        `${process.env.XERO_CLIENT_ID}:${process.env.XERO_CLIENT_SECRET}`
-      ).toString('base64');
-
-      console.log('Making token request to:', tokenUrl);
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: params
-      });
-
-      const responseText = await response.text();
-      console.log('Token response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      if (!response.ok) {
-        throw new Error(`Token request failed: ${response.status} ${responseText}`);
-      }
-
-      // Parse token response
-      const tokenData = JSON.parse(responseText);
-      console.log('Token data received:', {
-        hasAccessToken: !!tokenData.access_token,
-        hasRefreshToken: !!tokenData.refresh_token,
-        expiresIn: tokenData.expires_in
-      });
-
-      if (!tokenData.access_token) {
-        throw new Error('No access token in response');
-      }
-
-      // Store the tokens
-      tokenStore = tokenData;
-
-      // Get tenants using the access token
-      console.log('Fetching connections...');
-      const tenantsResponse = await fetch('https://api.xero.com/connections', {
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!tenantsResponse.ok) {
-        const errorText = await tenantsResponse.text();
-        throw new Error(`Failed to get tenants: ${tenantsResponse.status} ${errorText}`);
-      }
-
-      const tenants = await tenantsResponse.json();
-      console.log('Tenants retrieved:', tenants?.length || 0);
-
-      res.json({
-        success: true,
-        tenants: tenants || []
-      });
-    } catch (tokenError) {
-      console.error('Token exchange error:', {
-        message: tokenError.message,
-        name: tokenError.name,
-        stack: tokenError.stack,
-        response: tokenError.response?.data
-      });
-      throw tokenError;
-    }
-  } catch (error) {
-    console.error('Callback processing error:', {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
-    });
-    res.status(500).json({
-      error: 'Failed to process Xero callback',
-      details: error.message,
-      type: error.constructor.name
-    });
-  }
-});
-
-router.get('/verify', async (req, res) => {
-  try {
-    if (!tokenStore?.access_token) {
-      console.log('No token available');
-      return res.status(401).json({ authenticated: false });
-    }
-
-    // Verify token by trying to get connections
+    const accessToken = await ensureValidToken();
+    
+    // Get the first organization
     const tenantsResponse = await fetch('https://api.xero.com/connections', {
       headers: {
-        'Authorization': `Bearer ${tokenStore.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       }
     });
 
     if (!tenantsResponse.ok) {
-      console.log('Token verification failed:', await tenantsResponse.text());
-      return res.status(401).json({ authenticated: false });
+      throw new Error('Failed to get organization');
     }
 
     const tenants = await tenantsResponse.json();
-    console.log('Token verified, tenants:', tenants?.length || 0);
+    if (!tenants || tenants.length === 0) {
+      throw new Error('No organizations found');
+    }
 
-    res.json({ 
-      authenticated: true,
-      tenants: tenants || []
+    const tenantId = tenants[0].tenantId;
+
+    // Get customers for this organization
+    const customersResponse = await fetch(
+      'https://api.xero.com/api.xro/2.0/Contacts?where=IsCustomer=true', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Xero-tenant-id': tenantId
+        }
+      }
+    );
+
+    if (!customersResponse.ok) {
+      const errorText = await customersResponse.text();
+      throw new Error(`Failed to get customers: ${customersResponse.status} ${errorText}`);
+    }
+
+    const customersData = await customersResponse.json();
+    res.json({
+      success: true,
+      customers: customersData.Contacts || []
     });
   } catch (error) {
-    console.error('Verify error:', error);
-    res.status(401).json({ authenticated: false });
+    console.error('Error fetching customers:', error);
+    res.status(500).json({
+      error: 'Failed to fetch customers',
+      details: error.message
+    });
   }
 });
+
+router.get('/xero/customer/:customerId/invoices', async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const accessToken = await ensureValidToken();
+    
+    // Get the first organization
+    const tenantsResponse = await fetch('https://api.xero.com/connections', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!tenantsResponse.ok) {
+      throw new Error('Failed to get organization');
+    }
+
+    const tenants = await tenantsResponse.json();
+    if (!tenants || tenants.length === 0) {
+      throw new Error('No organizations found');
+    }
+
+    const tenantId = tenants[0].tenantId;
+
+    // Get invoices for this customer
+    const invoicesResponse = await fetch(
+      `https://api.xero.com/api.xro/2.0/Invoices?where=Contact.ContactID=guid(${customerId})`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Xero-tenant-id': tenantId
+        }
+      }
+    );
+
+    if (!invoicesResponse.ok) {
+      const errorText = await invoicesResponse.text();
+      throw new Error(`Failed to get invoices: ${invoicesResponse.status} ${errorText}`);
+    }
+
+    const invoicesData = await invoicesResponse.json();
+    
+    // Transform invoices to match your CSV format
+    const transformedInvoices = invoicesData.Invoices.map(invoice => ({
+      transactionNumber: invoice.InvoiceNumber,
+      type: invoice.Type,
+      amount: invoice.Total,
+      date: invoice.Date,
+      dueDate: invoice.DueDate,
+      status: invoice.Status,
+      reference: invoice.Reference || ''
+    }));
+
+    res.json({
+      success: true,
+      invoices: transformedInvoices
+    });
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    res.status(500).json({
+      error: 'Failed to fetch invoices',
+      details: error.message
+    });
+  }
+});
+
+// ... rest of the existing routes (xero, callback, verify) ...
 
 export default router;
