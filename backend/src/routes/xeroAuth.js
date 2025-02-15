@@ -1,5 +1,6 @@
 import express from 'express';
 import { XeroClient } from 'xero-node';
+import { TokenSet } from 'openid-client';
 
 const router = express.Router();
 
@@ -41,21 +42,34 @@ router.post('/xero/callback', async (req, res) => {
     }
 
     try {
-      // Get token set
       console.log('Starting token exchange...');
-      const tokenSet = await xero.getTokenSetFromAuthorizationCode(code);
-      
-      console.log('Token exchange result:', {
-        hasAccessToken: !!tokenSet?.access_token,
-        hasRefreshToken: !!tokenSet?.refresh_token,
-        expiresIn: tokenSet?.expires_in
+
+      // Make a direct POST request to Xero's token endpoint
+      const tokenResponse = await xero.requestToken({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: process.env.XERO_REDIRECT_URI
       });
 
-      if (!tokenSet?.access_token) {
+      console.log('Token response received:', {
+        hasAccessToken: !!tokenResponse?.access_token,
+        hasRefreshToken: !!tokenResponse?.refresh_token,
+        expiresIn: tokenResponse?.expires_in
+      });
+
+      if (!tokenResponse?.access_token) {
         throw new Error('No access token received');
       }
 
-      // Save the token set
+      // Create and save token set
+      const tokenSet = new TokenSet({
+        access_token: tokenResponse.access_token,
+        refresh_token: tokenResponse.refresh_token,
+        token_type: 'Bearer',
+        expires_in: tokenResponse.expires_in
+      });
+
+      console.log('Setting token set...');
       await xero.setTokenSet(tokenSet);
       console.log('Token set saved');
 
