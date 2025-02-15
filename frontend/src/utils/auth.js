@@ -36,35 +36,52 @@ export const AuthUtils = {
 
   async verifyAuth() {
     try {
+      // Check if we already have a valid token
+      const currentState = this.getAuthState();
+      if (!currentState.isAuthenticated) {
+        return false;
+      }
+
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+      console.log('Verifying auth with:', apiUrl);
+
       const response = await fetch(`${apiUrl}/auth/verify`, {
-        credentials: 'include',
+        method: 'GET',
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         }
       });
       
+      console.log('Verify response:', response.status);
+
       if (!response.ok) {
+        this.clearAuthState();
         return false;
       }
 
       const result = await response.json();
-      const isAuthenticated = result.authenticated;
-      this.setAuthState({ isAuthenticated });
-      
-      return isAuthenticated;
+      console.log('Verify result:', result);
+
+      if (result.authenticated) {
+        this.setAuthState({
+          isAuthenticated: true,
+          tenants: result.tenants
+        });
+        return true;
+      } else {
+        this.clearAuthState();
+        return false;
+      }
     } catch (error) {
       console.error('Error verifying auth:', error);
+      this.clearAuthState();
       return false;
     }
   },
 
   async logout() {
-    try {
-      this.clearAuthState();
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Error during logout:', error);
-    }
+    this.clearAuthState();
+    window.location.href = '/';
   }
 };
