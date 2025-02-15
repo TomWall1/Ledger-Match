@@ -47,6 +47,51 @@ async function ensureValidToken() {
   return tokens.access_token;
 }
 
+// Initial Xero connection route
+router.get('/xero', async (req, res) => {
+  try {
+    const consentUrl = await xero.buildConsentUrl();
+    res.json({ url: consentUrl });
+  } catch (error) {
+    console.error('Error generating consent URL:', error);
+    res.status(500).json({
+      error: 'Failed to initialize Xero connection',
+      details: error.message
+    });
+  }
+});
+
+// Xero OAuth callback route
+router.get('/xero/callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) {
+      throw new Error('No authorization code received');
+    }
+
+    // Exchange the code for tokens
+    const tokenSet = await xero.apiCallback(code);
+    
+    // Calculate token expiration (30 minutes from now)
+    const expires_at = Date.now() + (30 * 60 * 1000);
+    
+    // Save the tokens
+    await tokenStore.saveTokens({
+      ...tokenSet,
+      expires_at
+    });
+
+    // Redirect back to the frontend
+    res.redirect(process.env.FRONTEND_URL || 'https://ledger-match.vercel.app');
+  } catch (error) {
+    console.error('Error in Xero callback:', error);
+    res.status(500).json({
+      error: 'Failed to complete Xero authentication',
+      details: error.message
+    });
+  }
+});
+
 // Middleware to handle token validation
 const requireValidToken = async (req, res, next) => {
   try {
