@@ -25,15 +25,25 @@ router.post('/xero/callback', async (req, res) => {
     }
 
     try {
-      // Use apiCallback instead of getTokenSet
-      console.log('Exchanging code for token...');
-      const tokenSet = await xeroClient.apiCallback(code);
-      console.log('Token exchange response received');
+      console.log('Starting token exchange process...');
+      
+      // Get initial tokens
+      const accessToken = await xeroClient.oauth2Client.getAccessToken({
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: process.env.XERO_REDIRECT_URI
+      });
+      
+      console.log('Access token received:', !!accessToken);
+
+      if (!accessToken) {
+        throw new Error('Failed to get access token');
+      }
 
       // Get connected tenants
-      console.log('Updating tenants...');
+      console.log('Getting tenants...');
       const tenants = await xeroClient.updateTenants();
-      console.log('Got tenants:', tenants);
+      console.log('Tenants received:', tenants);
 
       res.json({ 
         success: true,
@@ -47,7 +57,8 @@ router.post('/xero/callback', async (req, res) => {
     console.error('Callback error:', error);
     res.status(500).json({ 
       error: 'Failed to process Xero callback',
-      details: error.message 
+      details: error.message,
+      stack: error.stack
     });
   }
 });

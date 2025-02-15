@@ -8,13 +8,17 @@ const config = {
   scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read']
 };
 
-console.log('Creating Xero client with config:', {
-  clientId: process.env.XERO_CLIENT_ID ? 'Set' : 'Missing',
-  clientSecret: process.env.XERO_CLIENT_SECRET ? 'Set' : 'Missing',
-  redirectUri: process.env.XERO_REDIRECT_URI,
-  scopes: config.scopes
-});
+if (!config.clientId || !config.clientSecret || !config.redirectUris[0]) {
+  console.error('Missing required Xero configuration:', {
+    clientId: config.clientId ? 'Set' : 'Missing',
+    clientSecret: config.clientSecret ? 'Set' : 'Missing',
+    redirectUri: config.redirectUris[0] || 'Missing'
+  });
+}
 
-const xeroClient = new XeroClient(config);
+const xeroClient = new XeroClient({
+  ...config,
+  httpTimeout: 30000  // Increase timeout to 30 seconds
+});
 
 export { xeroClient };
