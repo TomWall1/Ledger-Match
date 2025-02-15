@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { FileUpload } from './components/FileUpload';
 import MatchingResults from './components/MatchingResults';
 import DateFormatSelect from './components/DateFormatSelect';
 import XeroAuth from './components/XeroAuth';
-import { AuthUtils } from './utils/auth';
 import XeroCallback from './components/XeroCallback';
+import ARSourceSelector from './components/ARSourceSelector';
+import { FileUpload } from './components/FileUpload';
+import { AuthUtils } from './utils/auth';
 
 function PrivateRoute({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -53,10 +54,10 @@ function MainApp() {
     company2: 'YYYY-MM-DD'
   });
 
-  const handleFileUpload = (companyKey, file) => {
+  const handleFileUpload = (companyKey, fileData) => {
     setFiles(prev => ({
       ...prev,
-      [companyKey]: file
+      [companyKey]: fileData
     }));
     setError(null);
   };
@@ -102,9 +103,14 @@ function MainApp() {
     window.URL.revokeObjectURL(url);
   };
 
+  const processXeroData = (data) => {
+    // Data from Xero is already in the correct format
+    return data;
+  };
+
   const handleProcessFiles = async () => {
     if (!files.company1 || !files.company2) {
-      setError('Please upload both files before proceeding');
+      setError('Please provide both sets of data before proceeding');
       return;
     }
 
@@ -112,43 +118,64 @@ function MainApp() {
     setError(null);
 
     try {
+      let company1Data, company2Data;
+
+      // Process company 1 data (AR)
+      if (files.company1.type === 'csv') {
+        // Handle CSV upload
+        const formData = new FormData();
+        formData.append('file1', files.company1.file);
+        formData.append('dateFormat1', dateFormats.company1);
+        
+        const response = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to process CSV file');
+        }
+
+        company1Data = await response.json();
+      } else {
+        // Handle Xero data
+        company1Data = processXeroData(files.company1.data);
+      }
+
+      // Process company 2 data (AP)
       const formData = new FormData();
-      formData.append('file1', files.company1);
-      formData.append('file2', files.company2);
-      formData.append('dateFormat1', dateFormats.company1);
+      formData.append('file2', files.company2.file);
       formData.append('dateFormat2', dateFormats.company2);
-      
+
       const response = await fetch('https://ledger-match-backend.onrender.com/match', {
         method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-        },
         body: formData
       });
 
-      const responseText = await response.text();
-      
       if (!response.ok) {
-        throw new Error(responseText || `Server error: ${response.status}`);
+        throw new Error('Failed to process files');
       }
 
-      const matchResults = JSON.parse(responseText);
+      company2Data = await response.json();
 
-      const processedResults = {
-        totals: {
-          company1Total: matchResults.totals?.company1Total || "0.00",
-          company2Total: matchResults.totals?.company2Total || "0.00",
-          variance: matchResults.totals?.variance || "0.00"
+      // Perform matching
+      const matchResults = await fetch('https://ledger-match-backend.onrender.com/match-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        perfectMatches: Array.isArray(matchResults.perfectMatches) ? matchResults.perfectMatches : [],
-        mismatches: Array.isArray(matchResults.mismatches) ? matchResults.mismatches : [],
-        unmatchedItems: {
-          company1: Array.isArray(matchResults.unmatchedItems?.company1) ? matchResults.unmatchedItems.company1 : [],
-          company2: Array.isArray(matchResults.unmatchedItems?.company2) ? matchResults.unmatchedItems.company2 : []
-        }
-      };
+        body: JSON.stringify({
+          company1Data,
+          company2Data
+        })
+      });
 
-      setMatches(processedResults);
+      if (!matchResults.ok) {
+        throw new Error('Failed to match data');
+      }
+
+      const results = await matchResults.json();
+      setMatches(results);
       setCurrentScreen('results');
     } catch (error) {
       console.error('Error processing files:', error);
@@ -182,33 +209,24 @@ function MainApp() {
 
             <div className="border rounded-lg p-6 bg-white">
               <h2 className="text-lg font-semibold mb-4">Accounts Receivable Ledger</h2>
-              <FileUpload 
-                onFileSelected={(file) => handleFileUpload('company1', file)} 
-                accept=".csv"
-                label="Upload Accounts Receivable CSV"
-              />
-              {files.company1 && (
-                <p className="mt-2 text-sm text-green-600">
-                  ✓ {files.company1.name} uploaded
-                </p>
-              )}
-              <DateFormatSelect
-                selectedFormat={dateFormats.company1}
-                onChange={(format) => handleDateFormatChange('company1', format)}
-                label="Select Date Format"
+              <ARSourceSelector 
+                onFileSelected={(data) => handleFileUpload('company1', data)}
+                onDateFormatChange={(format) => handleDateFormatChange('company1', format)}
+                selectedDateFormat={dateFormats.company1}
+                file={files.company1}
               />
             </div>
 
             <div className="border rounded-lg p-6 bg-white">
               <h2 className="text-lg font-semibold mb-4">Accounts Payable Ledger</h2>
               <FileUpload 
-                onFileSelected={(file) => handleFileUpload('company2', file)} 
+                onFileSelected={(file) => handleFileUpload('company2', { type: 'csv', file })} 
                 accept=".csv"
                 label="Upload Accounts Payable CSV"
               />
-              {files.company2 && (
+              {files.company2?.type === 'csv' && files.company2.file && (
                 <p className="mt-2 text-sm text-green-600">
-                  ✓ {files.company2.name} uploaded
+                  ✓ {files.company2.file.name} uploaded
                 </p>
               )}
               <DateFormatSelect
@@ -234,19 +252,10 @@ function MainApp() {
             <div className="mt-12">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h2 className="text-lg font-semibold mb-3 text-blue-800">
-                  File Requirements
+                  Data Requirements
                 </h2>
                 <div>
-                  <h3 className="font-medium text-blue-800 mb-2">Format Requirements:</h3>
-                  <ul className="list-disc list-inside space-y-1 text-blue-900">
-                    <li>Files must be in CSV format</li>
-                    <li>File size should be under 10MB</li>
-                    <li>UTF-8 encoding required</li>
-                    <li>First row must contain column headers</li>
-                  </ul>
-                </div>
-                <div className="mt-4">
-                  <h3 className="font-medium text-blue-800 mb-2">Required Columns:</h3>
+                  <h3 className="font-medium text-blue-800 mb-2">Required Fields:</h3>
                   <ul className="list-disc list-inside space-y-1 text-blue-900">
                     <li>transaction_number</li>
                     <li>transaction_type</li>
