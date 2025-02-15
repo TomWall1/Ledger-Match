@@ -3,7 +3,6 @@ import { xeroClient } from '../config/xero.js';
 
 const router = express.Router();
 
-// This is the /xero route that gets called when users click "Connect to Xero"
 router.get('/xero', async (req, res) => {
   try {
     console.log('Initiating Xero OAuth flow...');
@@ -16,20 +15,8 @@ router.get('/xero', async (req, res) => {
   }
 });
 
-// This is the callback route that Xero calls after user authorizes
 router.post('/xero/callback', async (req, res) => {
   try {
-    // Debug: Log everything we receive
-    console.log('Full request:', {
-      body: req.body,
-      query: req.query,
-      headers: {
-        host: req.headers.host,
-        origin: req.headers.origin,
-        referer: req.headers.referer
-      }
-    });
-
     const { code } = req.body;
     console.log('Processing code:', code);
 
@@ -38,7 +25,6 @@ router.post('/xero/callback', async (req, res) => {
     }
 
     try {
-      // Use apiCallback directly
       const tokenSet = await xeroClient.apiCallback(code);
       console.log('Token exchange successful:', !!tokenSet);
 
@@ -60,17 +46,12 @@ router.post('/xero/callback', async (req, res) => {
   }
 });
 
-// This gets the list of Xero organizations
-router.get('/xero/organizations', async (req, res) => {
+router.get('/verify', async (req, res) => {
   try {
     const tenants = await xeroClient.updateTenants();
-    res.json({ organizations: tenants });
+    res.json({ authenticated: true });
   } catch (error) {
-    console.error('Error fetching organizations:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch organizations',
-      details: error.message 
-    });
+    res.status(401).json({ authenticated: false });
   }
 });
 
