@@ -18,25 +18,19 @@ if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads');
 }
 
-// Enable CORS with specific options
-app.use(cors({
+// Centralized CORS configuration
+const corsOptions = {
   origin: 'https://ledger-match.vercel.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
-  credentials: false
-}));
+  credentials: true
+};
+
+// Enable CORS with configured options
+app.use(cors(corsOptions));
 
 // Handle OPTIONS preflight requests
-app.options('*', cors());
-
-// Add headers middleware
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://ledger-match.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'false');
-  next();
-});
+app.options('*', cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json());
@@ -57,19 +51,6 @@ app.get('/test-cors', (req, res) => {
     origin: req.headers.origin || 'No origin header',
     method: req.method,
     headers: req.headers
-  });
-});
-
-app.get('/auth/test', (req, res) => {
-  res.json({ 
-    status: 'Xero routes accessible',
-    cors: 'enabled',
-    env: {
-      clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
-      clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
-      redirectUri: process.env.XERO_REDIRECT_URI,
-      frontend: process.env.FRONTEND_URL
-    }
   });
 });
 
