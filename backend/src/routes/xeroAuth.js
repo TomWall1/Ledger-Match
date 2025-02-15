@@ -1,5 +1,6 @@
 import express from 'express';
 import { XeroClient } from 'xero-node';
+import fetch from 'node-fetch';
 
 const router = express.Router();
 
@@ -9,30 +10,36 @@ const xero = new XeroClient({
   clientSecret: process.env.XERO_CLIENT_SECRET,
   redirectUris: [process.env.XERO_REDIRECT_URI],
   scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read'],
+  state: 'your-state-here',
   httpTimeout: 30000 // 30 second timeout
 });
 
-// Verify client configuration
-console.log('Xero client initialized with:', {
+// Log configuration at startup
+console.log('Xero client configuration:', {
   clientId: process.env.XERO_CLIENT_ID ? `${process.env.XERO_CLIENT_ID.substring(0, 4)}...` : 'Missing',
-  clientSecret: process.env.XERO_CLIENT_SECRET ? `${process.env.XERO_CLIENT_SECRET.substring(0, 4)}...` : 'Missing',
-  redirectUri: process.env.XERO_REDIRECT_URI
+  clientSecret: process.env.XERO_CLIENT_SECRET ? 'Present' : 'Missing',
+  redirectUri: process.env.XERO_REDIRECT_URI,
+  hasXeroClient: !!xero
 });
 
 router.get('/xero', async (req, res) => {
   try {
+    console.log('Starting OAuth flow...');
     const consentUrl = await xero.buildConsentUrl();
-    console.log('Generated consent URL');
+    console.log('Consent URL generated:', consentUrl);
     res.json({ url: consentUrl });
   } catch (error) {
-    console.error('Error generating consent URL:', error);
+    console.error('Error in /xero:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 router.post('/xero/callback', async (req, res) => {
-  console.log('Received callback request:', {
-    code: req.body.code ? 'Present' : 'Missing'
+  console.log('Callback received:', {
+    hasCode: !!req.body.code,
+    clientId: process.env.XERO_CLIENT_ID ? 'Present' : 'Missing',
+    clientSecret: process.env.XERO_CLIENT_SECRET ? 'Present' : 'Missing',
+    redirectUri: process.env.XERO_REDIRECT_URI
   });
 
   try {
@@ -42,59 +49,77 @@ router.post('/xero/callback', async (req, res) => {
     }
 
     try {
-      // Use the OAuth2 auth code grant to get tokens directly
-      console.log('Requesting tokens...');
-      const response = await fetch('https://identity.xero.com/connect/token', {
+      // Prepare the token request
+      const tokenUrl = 'https://identity.xero.com/connect/token';
+      const params = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: process.env.XERO_REDIRECT_URI
+      });
+
+      const auth = Buffer.from(
+        `${process.env.XERO_CLIENT_ID}:${process.env.XERO_CLIENT_SECRET}`
+      ).toString('base64');
+
+      console.log('Making token request to:', tokenUrl);
+      const response = await fetch(tokenUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${Buffer.from(`${process.env.XERO_CLIENT_ID}:${process.env.XERO_CLIENT_SECRET}`).toString('base64')}`
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: process.env.XERO_REDIRECT_URI
-        })
+        body: params
+      });
+
+      const responseText = await response.text();
+      console.log('Token response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        body: responseText
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Token request failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData
-        });
-        throw new Error(`Token request failed: ${response.status} ${errorData}`);
+        throw new Error(`Token request failed: ${response.status} ${responseText}`);
       }
 
-      const tokenData = await response.json();
-      console.log('Token response received:', {
+      const tokenData = JSON.parse(responseText);
+      if (!tokenData.access_token) {
+        throw new Error('No access token in response');
+      }
+
+      console.log('Token data received:', {
         hasAccessToken: !!tokenData.access_token,
         hasRefreshToken: !!tokenData.refresh_token,
         expiresIn: tokenData.expires_in
       });
 
-      // Set the token in the client
+      // Save the tokens
       await xero.setTokenSet(tokenData);
       console.log('Token set saved');
 
-      // Get connections (tenants)
+      // Get the tenants
       const tenants = await xero.updateTenants();
-      console.log('Retrieved tenants:', tenants?.length || 0);
+      console.log('Tenants retrieved:', tenants?.length || 0);
 
       res.json({
         success: true,
         tenants: tenants || []
       });
     } catch (tokenError) {
-      console.error('Token exchange error:', tokenError);
+      console.error('Token exchange error:', {
+        message: tokenError.message,
+        name: tokenError.name,
+        stack: tokenError.stack,
+        response: tokenError.response?.data
+      });
       throw tokenError;
     }
   } catch (error) {
     console.error('Callback processing error:', {
-      name: error.name,
       message: error.message,
-      status: error.status
+      name: error.name,
+      stack: error.stack
     });
     res.status(500).json({
       error: 'Failed to process Xero callback',
