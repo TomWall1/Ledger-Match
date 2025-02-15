@@ -7,23 +7,37 @@ const XeroCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   useEffect(() => {
     const handleCallback = async () => {
-      console.log('Handling Xero callback');
-      console.log('URL:', window.location.href);
-      console.log('Search params:', Object.fromEntries([...searchParams.entries()]));
+      const apiUrl = process.env.REACT_APP_API_URL;
+      console.log('API URL:', apiUrl); // Debug log
       
       const code = searchParams.get('code');
+      const debugData = {
+        apiUrl,
+        code: code ? 'Present' : 'Missing',
+        fullUrl: window.location.href,
+        searchParams: Object.fromEntries([...searchParams.entries()])
+      };
+      
+      setDebugInfo(debugData);
+      console.log('Debug data:', debugData);
+
       if (!code) {
         setError('No authorization code received from Xero');
         return;
       }
 
+      if (!apiUrl) {
+        setError('API URL not configured. Please check environment variables.');
+        return;
+      }
+
       try {
-        console.log('Sending code to backend:', code);
         const response = await axios.post(
-          `${process.env.REACT_APP_API_URL}/auth/xero/callback`,
+          `${apiUrl}/auth/xero/callback`,
           { code },
           {
             headers: {
@@ -45,8 +59,9 @@ const XeroCallback = () => {
         }
       } catch (error) {
         console.error('Full error:', error);
-        const errorDetails = error.response?.data?.details || error.message;
-        setError(errorDetails);
+        const errorMessage = error.response?.data?.details || error.message;
+        const fullError = `Error: ${errorMessage}\nStatus: ${error.response?.status || 'No status'}\nAPI URL: ${apiUrl}`;
+        setError(fullError);
       }
     };
 
@@ -70,7 +85,17 @@ const XeroCallback = () => {
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Error connecting to Xero</h3>
-                <p className="mt-2 text-sm text-red-700">{error}</p>
+                <pre className="mt-2 text-sm text-red-700 whitespace-pre-wrap">{error}</pre>
+                {debugInfo && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    <details>
+                      <summary>Debug Information</summary>
+                      <pre className="mt-2 text-xs bg-gray-100 p-2 rounded">
+                        {JSON.stringify(debugInfo, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                )}
                 <div className="mt-4">
                   <button
                     onClick={() => navigate('/auth/xero')}
