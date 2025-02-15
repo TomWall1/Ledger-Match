@@ -1,10 +1,8 @@
 import express from 'express';
 import { XeroClient } from 'xero-node';
-import { TokenSet } from 'openid-client';
 
 const router = express.Router();
 
-// Create a single instance of XeroClient
 const xero = new XeroClient({
   clientId: process.env.XERO_CLIENT_ID,
   clientSecret: process.env.XERO_CLIENT_SECRET,
@@ -44,38 +42,23 @@ router.post('/xero/callback', async (req, res) => {
     try {
       console.log('Starting token exchange...');
 
-      // Make a direct POST request to Xero's token endpoint
-      const tokenResponse = await xero.requestToken({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: process.env.XERO_REDIRECT_URI
-      });
-
-      console.log('Token response received:', {
+      // Exchange code for tokens using apiCallback
+      const tokenResponse = await xero.apiCallback(code);
+      console.log('Token exchange response:', {
         hasAccessToken: !!tokenResponse?.access_token,
         hasRefreshToken: !!tokenResponse?.refresh_token,
+        tokenType: tokenResponse?.token_type,
         expiresIn: tokenResponse?.expires_in
       });
 
       if (!tokenResponse?.access_token) {
-        throw new Error('No access token received');
+        throw new Error('Token exchange failed - no access token received');
       }
 
-      // Create and save token set
-      const tokenSet = new TokenSet({
-        access_token: tokenResponse.access_token,
-        refresh_token: tokenResponse.refresh_token,
-        token_type: 'Bearer',
-        expires_in: tokenResponse.expires_in
-      });
-
-      console.log('Setting token set...');
-      await xero.setTokenSet(tokenSet);
-      console.log('Token set saved');
-
       // Get tenants
+      console.log('Getting tenants...');
       const tenants = await xero.updateTenants();
-      console.log('Tenants retrieved:', tenants?.length || 0);
+      console.log('Tenants found:', tenants?.length || 0);
 
       res.json({ 
         success: true,
@@ -86,7 +69,8 @@ router.post('/xero/callback', async (req, res) => {
         name: tokenError.name,
         message: tokenError.message,
         response: tokenError.response?.data,
-        stack: tokenError.stack
+        method: tokenError.config?.method,
+        url: tokenError.config?.url
       });
       throw new Error(`Token exchange failed: ${tokenError.message}`);
     }
