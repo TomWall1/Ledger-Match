@@ -1,51 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { AuthUtils } from '../utils/auth';
 
 const XeroCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
 
- useEffect(() => {
-  const handleCallback = async () => {
-    // Debug: Log the full URL and all parameters
-    console.log('Full callback URL:', window.location.href);
-    console.log('All search params:', Object.fromEntries([...searchParams.entries()]));
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');  // Get state from URL
-    console.log('Received from Xero:', { code, state });
+  useEffect(() => {
+    const handleCallback = async () => {
+      console.log('Full callback URL:', window.location.href);
+      console.log('All search params:', Object.fromEntries([...searchParams.entries()]));
+      const code = searchParams.get('code');
+      console.log('Received from Xero:', { code });
 
-    if (!code) {
-      setError('No authorization code received');
-      return;
-    }
-
-    try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/auth/xero/callback`,
-        { code, state },  // Pass both code and state
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('Callback response:', response.data);
-
-      if (response.data.success) {
-        navigate('/dashboard');
+      if (!code) {
+        setError('No authorization code received');
+        return;
       }
-    } catch (error) {
-      console.error('Error details:', error);
-      const errorMessage = error.response?.data?.details || error.message;
-      setError(errorMessage);
-    }
-  };
 
-  handleCallback();
-}, [searchParams, navigate]);
+      try {
+        const response = await axios.post(
+          `${process.env.REACT_APP_API_URL}/auth/xero/callback`,
+          { code },
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        console.log('Callback response:', response.data);
+
+        if (response.data.success) {
+          AuthUtils.setAuthState({ isAuthenticated: true });
+          navigate('/');
+        }
+      } catch (error) {
+        console.error('Error details:', error);
+        const errorMessage = error.response?.data?.details || error.message;
+        setError(errorMessage);
+      }
+    };
+
+    handleCallback();
+  }, [searchParams, navigate]);
 
   return (
     <div className="p-4">
