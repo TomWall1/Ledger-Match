@@ -52,12 +52,19 @@ router.post('/xero/callback', async (req, res) => {
         scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read']
       });
 
-      console.log('Attempting token exchange using apiCallback...');
-      const tokenSet = await xero.oauth2Client.grant({
+      console.log('Attempting token exchange...');
+      
+      // Build the token request
+      const tokenRequest = {
         grant_type: 'authorization_code',
         code: code,
         redirect_uri: process.env.XERO_REDIRECT_URI
-      });
+      };
+      
+      console.log('Token request:', tokenRequest);
+      
+      // Exchange the code for tokens using apiCallback
+      const tokenSet = await xero.apiCallback(code);
       
       console.log('Token response:', {
         hasAccessToken: !!tokenSet?.access_token,
@@ -69,10 +76,7 @@ router.post('/xero/callback', async (req, res) => {
         throw new Error('No access token received');
       }
 
-      console.log('Setting token set...');
-      await xero.setTokenSet(tokenSet);
-      console.log('Token set successfully stored');
-
+      console.log('Getting tenants...');
       const tenants = await xero.updateTenants(false);
       console.log('Tenants retrieved:', tenants?.length || 0);
 
