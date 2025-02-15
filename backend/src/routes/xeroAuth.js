@@ -14,6 +14,9 @@ const xero = new XeroClient({
   httpTimeout: 30000 // 30 second timeout
 });
 
+// Store tokens in memory (for development)
+let tokenStore = null;
+
 // Log configuration at startup
 console.log('Xero client configuration:', {
   clientId: process.env.XERO_CLIENT_ID ? `${process.env.XERO_CLIENT_ID.substring(0, 4)}...` : 'Missing',
@@ -75,8 +78,7 @@ router.post('/xero/callback', async (req, res) => {
       console.log('Token response:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: responseText
+        headers: Object.fromEntries(response.headers.entries())
       });
 
       if (!response.ok) {
@@ -95,7 +97,10 @@ router.post('/xero/callback', async (req, res) => {
         throw new Error('No access token in response');
       }
 
-      // Get tenants using a direct API call
+      // Store the tokens
+      tokenStore = tokenData;
+
+      // Get tenants using the access token
       console.log('Fetching connections...');
       const tenantsResponse = await fetch('https://api.xero.com/connections', {
         headers: {
@@ -141,9 +146,33 @@ router.post('/xero/callback', async (req, res) => {
 
 router.get('/verify', async (req, res) => {
   try {
-    const tenants = await xero.updateTenants();
-    res.json({ authenticated: true });
+    if (!tokenStore?.access_token) {
+      console.log('No token available');
+      return res.status(401).json({ authenticated: false });
+    }
+
+    // Verify token by trying to get connections
+    const tenantsResponse = await fetch('https://api.xero.com/connections', {
+      headers: {
+        'Authorization': `Bearer ${tokenStore.access_token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!tenantsResponse.ok) {
+      console.log('Token verification failed:', await tenantsResponse.text());
+      return res.status(401).json({ authenticated: false });
+    }
+
+    const tenants = await tenantsResponse.json();
+    console.log('Token verified, tenants:', tenants?.length || 0);
+
+    res.json({ 
+      authenticated: true,
+      tenants: tenants || []
+    });
   } catch (error) {
+    console.error('Verify error:', error);
     res.status(401).json({ authenticated: false });
   }
 });
