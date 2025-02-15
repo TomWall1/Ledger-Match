@@ -4,6 +4,7 @@ import axios from 'axios';
 const XeroAuth = () => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const handleConnect = async () => {
     console.log('Button clicked - start');
@@ -11,15 +12,28 @@ const XeroAuth = () => {
     setError(null);
     
     try {
-      const apiUrl = `${process.env.REACT_APP_API_URL}/auth/xero`;
-      console.log('Making request to:', apiUrl);
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+      const fullUrl = `${apiUrl}/auth/xero`;
+      
+      // Store debug info
+      const debug = {
+        apiUrl,
+        fullUrl,
+        env: process.env.NODE_ENV,
+        timestamp: new Date().toISOString()
+      };
+      setDebugInfo(debug);
+      console.log('Debug info:', debug);
 
+      console.log('Making request to:', fullUrl);
       const response = await axios({
         method: 'get',
-        url: apiUrl,
+        url: fullUrl,
         headers: {
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: 10000 // 10 second timeout
       });
       
       console.log('Response received:', response);
@@ -34,13 +48,14 @@ const XeroAuth = () => {
       console.error('Connection error:', {
         message: error.message,
         status: error.response?.status,
-        data: error.response?.data
+        data: error.response?.data,
+        code: error.code
       });
-      setError('Failed to connect to Xero: ' + error.message);
+      setError(`Failed to connect to Xero: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
-};
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -54,7 +69,17 @@ const XeroAuth = () => {
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {error && (
             <div className="mb-4 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
-              {error}
+              <div className="font-bold mb-2">{error}</div>
+              {debugInfo && (
+                <div className="text-sm">
+                  <details>
+                    <summary className="cursor-pointer">Debug Information</summary>
+                    <pre className="mt-2 p-2 bg-gray-100 rounded overflow-x-auto">
+                      {JSON.stringify(debugInfo, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              )}
             </div>
           )}
 
