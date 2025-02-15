@@ -17,24 +17,31 @@ router.get('/xero', async (req, res) => {
 
 router.post('/xero/callback', async (req, res) => {
   try {
+    console.log('Received callback with body:', req.body);
     const { code } = req.body;
-    console.log('Processing code:', code);
 
     if (!code) {
       throw new Error('No authorization code received');
     }
 
     try {
-      const tokenSet = await xeroClient.apiCallback(code);
-      console.log('Token exchange successful:', !!tokenSet);
+      // Get the token set from Xero
+      const tokenSet = await xeroClient.getTokenSet(code);
+      console.log('Token exchange response:', tokenSet);
 
-      if (!tokenSet) {
-        throw new Error('Token exchange failed');
-      }
+      // Get connected tenants
+      await xeroClient.updateTenants();
+      
+      // Get active tenant
+      const activeTenant = await xeroClient.readTokenSet();
+      console.log('Active tenant:', activeTenant);
 
-      res.json({ success: true });
+      res.json({ 
+        success: true,
+        tenant: activeTenant
+      });
     } catch (tokenError) {
-      console.error('Token exchange error:', tokenError);
+      console.error('Token exchange error details:', tokenError);
       throw new Error(`Token exchange failed: ${tokenError.message}`);
     }
   } catch (error) {
