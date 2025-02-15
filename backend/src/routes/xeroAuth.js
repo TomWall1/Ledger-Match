@@ -9,8 +9,7 @@ const createXeroClient = () => {
     clientId: process.env.XERO_CLIENT_ID,
     clientSecret: process.env.XERO_CLIENT_SECRET,
     redirectUris: [process.env.XERO_REDIRECT_URI],
-    scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read'],
-    state: 'xero-auth'
+    scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read']
   };
 
   console.log('Creating Xero client with config:', {
@@ -48,27 +47,22 @@ router.post('/xero/callback', async (req, res) => {
 
     try {
       const xero = createXeroClient();
-      console.log('Exchanging code for token...');
+      console.log('Connecting to Xero...');
 
-      // First try to initialize the client
-      await xero.initialize();
-      console.log('Client initialized');
-
-      // Then use apiCallback
-      const tokens = await xero.apiCallback(code);
-      console.log('Token exchange complete', {
-        hasAccessToken: !!tokens?.access_token,
-        hasRefreshToken: !!tokens?.refresh_token,
-        expiresIn: tokens?.expires_in
+      const tokenSet = await xero.authenticate({
+        code,
+        redirectUri: process.env.XERO_REDIRECT_URI
       });
 
-      if (!tokens?.access_token) {
+      console.log('Authentication response:', {
+        hasAccessToken: !!tokenSet?.access_token,
+        hasRefreshToken: !!tokenSet?.refresh_token,
+        expiresIn: tokenSet?.expires_in
+      });
+
+      if (!tokenSet?.access_token) {
         throw new Error('No access token in response');
       }
-
-      // Set the token
-      await xero.setTokenSet(tokens);
-      console.log('Token set in client');
 
       // Test the connection by getting tenants
       const tenants = await xero.updateTenants();
