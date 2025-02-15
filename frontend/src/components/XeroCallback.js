@@ -12,15 +12,15 @@ const XeroCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       const code = searchParams.get('code');
-      const state = searchParams.get('state');
+      const scope = searchParams.get('scope');
       
       const debug = {
         code: code ? 'Present' : 'Missing',
-        state: state ? 'Present' : 'Missing',
-        searchParams: Object.fromEntries([...searchParams.entries()])
+        scope: scope || 'Missing',
+        url: window.location.href
       };
       setDebugInfo(debug);
-      console.log('Debug info:', debug);
+      console.log('XeroCallback initiated with:', debug);
 
       if (!code) {
         setError('No authorization code received from Xero');
@@ -29,33 +29,43 @@ const XeroCallback = () => {
 
       try {
         const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-        console.log('Sending code to backend:', apiUrl);
+        console.log('Sending code to backend:', { code, apiUrl });
 
         const response = await axios.post(
           `${apiUrl}/auth/xero/callback`,
-          { code, state },
+          { code },
           {
             headers: {
               'Content-Type': 'application/json'
-            }
+            },
+            timeout: 10000 // 10 second timeout
           }
         );
 
         console.log('Backend response:', response.data);
 
         if (response.data.success) {
+          console.log('Authentication successful');
           AuthUtils.setAuthState({ 
             isAuthenticated: true,
-            tenant: response.data.tenant
+            tenants: response.data.tenants
           });
           navigate('/');
         } else {
           throw new Error(response.data.error || 'Unexpected response from server');
         }
       } catch (error) {
-        console.error('Error during callback:', error);
+        console.error('Error during callback:', error.response?.data || error);
         const errorMessage = error.response?.data?.details || error.message;
         setError(errorMessage);
+        setDebugInfo(prev => ({
+          ...prev,
+          error: {
+            message: errorMessage,
+            status: error.response?.status,
+            data: error.response?.data
+          }
+        }));
       }
     };
 
