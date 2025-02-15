@@ -1,7 +1,6 @@
 const AUTH_STORAGE_KEY = 'xero_auth_state';
 
 export const AuthUtils = {
-  // Store authentication state
   setAuthState(state) {
     try {
       const authState = {
@@ -14,7 +13,6 @@ export const AuthUtils = {
     }
   },
 
-  // Get authentication state
   getAuthState() {
     try {
       const state = sessionStorage.getItem(AUTH_STORAGE_KEY);
@@ -27,7 +25,6 @@ export const AuthUtils = {
     }
   },
 
-  // Clear authentication state
   clearAuthState() {
     try {
       sessionStorage.removeItem(AUTH_STORAGE_KEY);
@@ -36,14 +33,14 @@ export const AuthUtils = {
     }
   },
 
-  // Verify authentication status with backend
   async verifyAuth() {
     try {
-      const response = await fetch('/api/auth/verify', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/verify`, {
         credentials: 'include'
       });
       
-      const isAuthenticated = response.ok;
+      const result = await response.json();
+      const isAuthenticated = result.authenticated;
       this.setAuthState({ isAuthenticated });
       
       return isAuthenticated;
@@ -53,15 +50,10 @@ export const AuthUtils = {
     }
   },
 
-  // Handle logout
   async logout() {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
       this.clearAuthState();
-      window.location.href = '/login';
+      window.location.href = '/';
     } catch (error) {
       console.error('Error during logout:', error);
     }
