@@ -1,4 +1,5 @@
 import express from 'express';
+import { XeroClient } from 'xero-node';
 import { xeroClient } from '../config/xero.js';
 
 const router = express.Router();
@@ -27,12 +28,13 @@ router.post('/xero/callback', async (req, res) => {
     try {
       console.log('Starting token exchange process...');
       
-      // Get initial tokens
-      const accessToken = await xeroClient.oauth2Client.getAccessToken({
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri: process.env.XERO_REDIRECT_URI
-      });
+      // Exchange the authorization code for tokens
+      await xeroClient.initialize();
+      const accessToken = await xeroClient.refreshWithRefreshToken(
+        process.env.XERO_CLIENT_ID,
+        process.env.XERO_CLIENT_SECRET,
+        code
+      );
       
       console.log('Access token received:', !!accessToken);
 
