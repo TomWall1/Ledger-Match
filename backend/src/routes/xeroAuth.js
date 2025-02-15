@@ -32,8 +32,19 @@ router.post('/xero/callback', async (req, res) => {
     }
 
     try {
+      // Get the redirectUri from env
+      const redirectUri = process.env.XERO_REDIRECT_URI;
+      if (!redirectUri) {
+        throw new Error('Redirect URI not configured');
+      }
+
+      console.log('Starting authorization with:', {
+        codePresent: !!code,
+        redirectUri
+      });
+
       // Exchange authorization code for tokens
-      const tokenSet = await xero.authorize(code, xero.redirectUris[0]);
+      const tokenSet = await xero.authorize(code, redirectUri);
       console.log('Token exchange successful:', {
         hasAccessToken: !!tokenSet.access_token,
         hasRefreshToken: !!tokenSet.refresh_token,
@@ -45,11 +56,11 @@ router.post('/xero/callback', async (req, res) => {
 
       // Get tenants
       const tenants = await xero.updateTenants(false);
-      console.log('Retrieved tenants:', tenants.length);
+      console.log('Retrieved tenants:', tenants?.length || 0);
 
       res.json({ 
         success: true,
-        tenants: tenants
+        tenants: tenants || []
       });
     } catch (tokenError) {
       console.error('Token exchange error:', tokenError);
