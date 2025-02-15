@@ -11,34 +11,29 @@ const XeroCallback = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const apiUrl = process.env.REACT_APP_API_URL;
-      console.log('API URL:', apiUrl); // Debug log
-      
       const code = searchParams.get('code');
-      const debugData = {
-        apiUrl,
+      const state = searchParams.get('state');
+      
+      const debug = {
         code: code ? 'Present' : 'Missing',
-        fullUrl: window.location.href,
+        state: state ? 'Present' : 'Missing',
         searchParams: Object.fromEntries([...searchParams.entries()])
       };
-      
-      setDebugInfo(debugData);
-      console.log('Debug data:', debugData);
+      setDebugInfo(debug);
+      console.log('Debug info:', debug);
 
       if (!code) {
         setError('No authorization code received from Xero');
         return;
       }
 
-      if (!apiUrl) {
-        setError('API URL not configured. Please check environment variables.');
-        return;
-      }
-
       try {
+        const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+        console.log('Sending code to backend:', apiUrl);
+
         const response = await axios.post(
           `${apiUrl}/auth/xero/callback`,
-          { code },
+          { code, state },
           {
             headers: {
               'Content-Type': 'application/json'
@@ -55,13 +50,12 @@ const XeroCallback = () => {
           });
           navigate('/');
         } else {
-          throw new Error('Unexpected response from server');
+          throw new Error(response.data.error || 'Unexpected response from server');
         }
       } catch (error) {
-        console.error('Full error:', error);
+        console.error('Error during callback:', error);
         const errorMessage = error.response?.data?.details || error.message;
-        const fullError = `Error: ${errorMessage}\nStatus: ${error.response?.status || 'No status'}\nAPI URL: ${apiUrl}`;
-        setError(fullError);
+        setError(errorMessage);
       }
     };
 
@@ -85,12 +79,12 @@ const XeroCallback = () => {
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Error connecting to Xero</h3>
-                <pre className="mt-2 text-sm text-red-700 whitespace-pre-wrap">{error}</pre>
+                <p className="mt-2 text-sm text-red-700">{error}</p>
                 {debugInfo && (
-                  <div className="mt-2 text-sm text-gray-600">
+                  <div className="mt-2">
                     <details>
-                      <summary>Debug Information</summary>
-                      <pre className="mt-2 text-xs bg-gray-100 p-2 rounded">
+                      <summary className="text-sm cursor-pointer text-red-600">Debug Information</summary>
+                      <pre className="mt-2 text-xs bg-red-50 p-2 rounded overflow-x-auto">
                         {JSON.stringify(debugInfo, null, 2)}
                       </pre>
                     </details>
