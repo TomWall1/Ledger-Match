@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import MatchingResults from './components/MatchingResults';
 import DateFormatSelect from './components/DateFormatSelect';
 import XeroAuth from './components/XeroAuth';
-import XeroCallback from './components/XeroCallback';
 import ARSourceSelector from './components/ARSourceSelector';
 import { FileUpload } from './components/FileUpload';
 import { AuthUtils } from './utils/auth';
@@ -53,6 +52,21 @@ function MainApp() {
     company1: 'YYYY-MM-DD',
     company2: 'YYYY-MM-DD'
   });
+
+  // Check for auth success/error in URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+
+    if (success === 'true') {
+      // Clear URL params and proceed
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error) {
+      setError(decodeURIComponent(error));
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const handleFileUpload = (companyKey, fileData) => {
     setFiles(prev => ({
@@ -296,7 +310,6 @@ export function App() {
     <Router>
       <Routes>
         <Route path="/auth/xero" element={<XeroAuth />} />
-        <Route path="/auth/xero/callback" element={<XeroCallback />} />
         <Route
           path="/*"
           element={
