@@ -27,6 +27,7 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
       }
 
       const data = await response.json();
+      console.log('Fetched customers:', data);
       setCustomers(data.customers || []);
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -36,28 +37,30 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
     }
   };
 
-  const handleCustomerSelect = async (customerId) => {
+  const handleCustomerSelect = async (customer) => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Selected customer:', customer);
       
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/customer/${customerId}/invoices`);
+      const response = await fetch(`${apiUrl}/auth/xero/customer/${customer.ContactID}/invoices`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch customer invoices');
       }
 
       const data = await response.json();
+      console.log('Fetched invoices:', data);
       
       // Notify parent component with the Xero data
       onFileSelected({
         type: 'xero',
         data: data.invoices,
-        name: customers.find(c => c.contactID === customerId)?.name || 'Selected Customer'
+        name: customer.Name || 'Selected Customer'
       });
 
-      setSelectedCustomer(customerId);
+      setSelectedCustomer(customer.ContactID);
     } catch (error) {
       console.error('Error fetching customer invoices:', error);
       setError('Failed to load customer invoices from Xero');
@@ -133,14 +136,14 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
                 <ul className="divide-y">
                   {customers.map(customer => (
                     <li 
-                      key={customer.contactID}
-                      className={`p-4 cursor-pointer hover:bg-gray-50 ${selectedCustomer === customer.contactID ? 'bg-blue-50' : ''}`}
-                      onClick={() => handleCustomerSelect(customer.contactID)}
+                      key={customer.ContactID}
+                      className={`p-4 cursor-pointer hover:bg-gray-50 ${selectedCustomer === customer.ContactID ? 'bg-blue-50' : ''}`}
+                      onClick={() => handleCustomerSelect(customer)}
                     >
-                      <div className="font-medium">{customer.name}</div>
-                      {customer.emailAddress && (
-                        <div className="text-sm text-gray-600">{customer.emailAddress}</div>
-                      )}
+                      <div className="font-medium">{customer.Name}</div>
+                      <div className="text-sm text-gray-600">
+                        Balance: ${customer.Balances?.AccountsReceivable?.Outstanding || '0.00'}
+                      </div>
                     </li>
                   ))}
                 </ul>
