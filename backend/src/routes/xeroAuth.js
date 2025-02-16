@@ -93,7 +93,7 @@ router.get('/xero/callback', async (req, res) => {
       expiresIn: tokens.expires_in
     });
 
-    // Store tokens in Redis
+    // Store tokens
     await tokenStore.saveTokens(tokens);
 
     const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
@@ -200,7 +200,7 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
     const invoicesData = await invoicesResponse.json();
     
     // Transform to match CSV format
-    const transformedInvoices = invoicesData.Invoices.map(invoice => ({
+    const transformedInvoices = (invoicesData.Invoices || []).map(invoice => ({
       transaction_number: invoice.InvoiceNumber,
       transaction_type: invoice.Type,
       amount: invoice.Total,
