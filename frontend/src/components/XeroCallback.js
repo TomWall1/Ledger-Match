@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
 import { AuthUtils } from '../utils/auth';
 
 const XeroCallback = () => {
@@ -12,10 +11,18 @@ const XeroCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       const code = searchParams.get('code');
+      const state = searchParams.get('state');
       const scope = searchParams.get('scope');
+      const errorParam = searchParams.get('error');
       
+      if (errorParam) {
+        setError(decodeURIComponent(errorParam));
+        return;
+      }
+
       const debug = {
         code: code ? 'Present' : 'Missing',
+        state: state || 'Missing',
         scope: scope || 'Missing',
         url: window.location.href
       };
@@ -27,46 +34,17 @@ const XeroCallback = () => {
         return;
       }
 
-      try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-        console.log('Sending code to backend:', { code, apiUrl });
-
-        // Change to GET request with code as query parameter
-        const response = await axios.get(
-          `${apiUrl}/auth/xero/callback?code=${encodeURIComponent(code)}`,
-          {
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            timeout: 10000 // 10 second timeout
-          }
-        );
-
-        console.log('Backend response:', response.data);
-
-        if (response.data.success) {
-          console.log('Authentication successful');
-          AuthUtils.setAuthState({ 
-            isAuthenticated: true,
-            tenants: response.data.tenants
-          });
-          navigate('/');
-        } else {
-          throw new Error(response.data.error || 'Unexpected response from server');
-        }
-      } catch (error) {
-        console.error('Error during callback:', error.response?.data || error);
-        const errorMessage = error.response?.data?.details || error.message;
-        setError(errorMessage);
-        setDebugInfo(prev => ({
-          ...prev,
-          error: {
-            message: errorMessage,
-            status: error.response?.status,
-            data: error.response?.data
-          }
-        }));
+      // If we have a success parameter, auth was successful
+      if (searchParams.get('success') === 'true') {
+        console.log('Authentication successful');
+        AuthUtils.setAuthState({ 
+          isAuthenticated: true
+        });
+        navigate('/');
+        return;
       }
+
+      setError('Authentication was not completed successfully');
     };
 
     handleCallback();
