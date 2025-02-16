@@ -16,6 +16,36 @@ const xero = new XeroClient({
   httpTimeout: 30000
 });
 
+// Helper function to make authenticated Xero API calls
+async function callXeroApi(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const text = await response.text();
+  console.log(`Response from ${url}:`, {
+    status: response.status,
+    headers: response.headers.raw(),
+    body: text
+  });
+
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.status} ${text}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    console.error('Failed to parse response:', text);
+    throw new Error('Invalid JSON response from Xero');
+  }
+}
+
 // Middleware to verify Xero authentication
 const requireXeroAuth = async (req, res, next) => {
   try {
@@ -108,21 +138,14 @@ router.get('/xero/callback', async (req, res) => {
 // Get Xero customers
 router.get('/xero/customers', requireXeroAuth, async (req, res) => {
   try {
+    console.log('Fetching tenants...');
     // Get organization first
-    const tenantsResponse = await fetch('https://api.xero.com/connections', {
-      method: 'GET',
+    const tenants = await callXeroApi('https://api.xero.com/connections', {
       headers: {
-        'Authorization': `Bearer ${req.xeroTokens.access_token}`,
-        'Accept': 'application/json'
+        'Authorization': `Bearer ${req.xeroTokens.access_token}`
       }
     });
 
-    if (!tenantsResponse.ok) {
-      console.error('Failed to get tenants:', await tenantsResponse.text());
-      throw new Error('Failed to get organization');
-    }
-
-    const tenants = await tenantsResponse.json();
     if (!tenants || tenants.length === 0) {
       throw new Error('No organizations found');
     }
@@ -130,27 +153,17 @@ router.get('/xero/customers', requireXeroAuth, async (req, res) => {
     const tenantId = tenants[0].tenantId;
     console.log('Using tenant:', { id: tenantId, name: tenants[0].tenantName });
 
+    console.log('Fetching customers...');
     // Get customers
-    const customersResponse = await fetch(
+    const customersData = await callXeroApi(
       'https://api.xero.com/api.xro/2.0/Contacts?where=IsCustomer=true', {
-        method: 'GET',
         headers: {
           'Authorization': `Bearer ${req.xeroTokens.access_token}`,
-          'Accept': 'application/json',
           'Xero-tenant-id': tenantId
         }
       }
     );
 
-    console.log('Customer response status:', customersResponse.status);
-    const responseText = await customersResponse.text();
-    console.log('Customer response:', responseText);
-
-    if (!customersResponse.ok) {
-      throw new Error(`Failed to get customers: ${customersResponse.status} ${responseText}`);
-    }
-
-    const customersData = JSON.parse(responseText);
     res.json({
       success: true,
       customers: customersData.Contacts || []
@@ -170,19 +183,12 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
     const { customerId } = req.params;
 
     // Get organization first
-    const tenantsResponse = await fetch('https://api.xero.com/connections', {
-      method: 'GET',
+    const tenants = await callXeroApi('https://api.xero.com/connections', {
       headers: {
-        'Authorization': `Bearer ${req.xeroTokens.access_token}`,
-        'Accept': 'application/json'
+        'Authorization': `Bearer ${req.xeroTokens.access_token}`
       }
     });
 
-    if (!tenantsResponse.ok) {
-      throw new Error('Failed to get organization');
-    }
-
-    const tenants = await tenantsResponse.json();
     if (!tenants || tenants.length === 0) {
       throw new Error('No organizations found');
     }
@@ -190,25 +196,14 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
     const tenantId = tenants[0].tenantId;
 
     // Get invoices
-    const invoicesResponse = await fetch(
+    const invoicesData = await callXeroApi(
       `https://api.xero.com/api.xro/2.0/Invoices?where=Contact.ContactID=guid(${customerId})`, {
-        method: 'GET',
         headers: {
           'Authorization': `Bearer ${req.xeroTokens.access_token}`,
-          'Accept': 'application/json',
           'Xero-tenant-id': tenantId
         }
       }
     );
-
-    const responseText = await invoicesResponse.text();
-    console.log('Invoice response:', responseText);
-
-    if (!invoicesResponse.ok) {
-      throw new Error(`Failed to get invoices: ${invoicesResponse.status} ${responseText}`);
-    }
-
-    const invoicesData = JSON.parse(responseText);
     
     // Transform to match CSV format
     const transformedInvoices = (invoicesData.Invoices || []).map(invoice => ({
