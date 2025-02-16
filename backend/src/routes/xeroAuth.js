@@ -46,9 +46,34 @@ router.get('/xero/callback', async (req, res) => {
 
     pendingStates.delete(state);
 
-    // Exchange code for tokens
-    const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
-    const tokens = await xero.apiCallback(code);
+    // Exchange code for tokens manually
+    const tokenResponse = await fetch('https://identity.xero.com/connect/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + Buffer.from(
+          `${process.env.XERO_CLIENT_ID}:${process.env.XERO_CLIENT_SECRET}`
+        ).toString('base64')
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: process.env.XERO_REDIRECT_URI || 'https://ledger-match-backend.onrender.com/auth/xero/callback'
+      }).toString()
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Token exchange failed:', errorText);
+      throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
+    }
+
+    const tokens = await tokenResponse.json();
+    console.log('Token exchange successful:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: tokens.expires_in
+    });
 
     // Store tokens
     global.xeroTokens = {
@@ -56,6 +81,7 @@ router.get('/xero/callback', async (req, res) => {
       expires_at: Date.now() + (tokens.expires_in * 1000)
     };
 
+    const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
     res.redirect(`${frontendUrl}?authenticated=true`);
   } catch (error) {
     console.error('Error in Xero callback:', error);
