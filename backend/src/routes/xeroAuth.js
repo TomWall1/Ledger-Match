@@ -19,7 +19,7 @@ console.log('Starting Xero configuration with:', {
 const xero = new XeroClient({
   clientId: process.env.XERO_CLIENT_ID,
   clientSecret: process.env.XERO_CLIENT_SECRET,
-  redirectUris: [process.env.XERO_REDIRECT_URI],
+  redirectUris: [process.env.XERO_REDIRECT_URI || 'https://ledger-match-backend.onrender.com/auth/xero/callback'],
   scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read'],
   httpTimeout: 30000 // 30 second timeout
 });
@@ -32,14 +32,23 @@ router.get('/xero', async (req, res) => {
     const state = crypto.randomBytes(16).toString('hex');
     pendingStates.add(state);
 
-    // Build URL with our state
+    const redirectUri = process.env.XERO_REDIRECT_URI || 'https://ledger-match-backend.onrender.com/auth/xero/callback';
     const consentUrl = await xero.buildConsentUrl();
-    const urlWithState = consentUrl.replace('state=your-state-here', `state=${state}`);
     
-    console.log('Generated consent URL with state:', state);
+    // Make sure the URL uses our backend redirect URI
+    const url = new URL(consentUrl);
+    url.searchParams.set('redirect_uri', redirectUri);
+    url.searchParams.set('state', state);
+    
+    console.log('Generated consent URL:', {
+      url: url.toString(),
+      state,
+      redirectUri
+    });
+
     res.json({ 
-      url: urlWithState,
-      state: state
+      url: url.toString(),
+      state
     });
   } catch (error) {
     console.error('Error generating consent URL:', error);
