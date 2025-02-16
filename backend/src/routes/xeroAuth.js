@@ -90,4 +90,130 @@ router.get('/xero/callback', async (req, res) => {
   }
 });
 
+// Get Xero customers
+router.get('/xero/customers', async (req, res) => {
+  try {
+    if (!global.xeroTokens?.access_token) {
+      throw new Error('Not authenticated with Xero');
+    }
+
+    // Get organization first
+    const tenantsResponse = await fetch('https://api.xero.com/connections', {
+      headers: {
+        'Authorization': `Bearer ${global.xeroTokens.access_token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!tenantsResponse.ok) {
+      throw new Error('Failed to get organization');
+    }
+
+    const tenants = await tenantsResponse.json();
+    if (!tenants || tenants.length === 0) {
+      throw new Error('No organizations found');
+    }
+
+    const tenantId = tenants[0].tenantId;
+
+    // Get customers
+    const customersResponse = await fetch(
+      'https://api.xero.com/api.xro/2.0/Contacts?where=IsCustomer=true', {
+        headers: {
+          'Authorization': `Bearer ${global.xeroTokens.access_token}`,
+          'Content-Type': 'application/json',
+          'Xero-tenant-id': tenantId
+        }
+      }
+    );
+
+    if (!customersResponse.ok) {
+      const errorText = await customersResponse.text();
+      throw new Error(`Failed to get customers: ${customersResponse.status} ${errorText}`);
+    }
+
+    const customersData = await customersResponse.json();
+    res.json({
+      success: true,
+      customers: customersData.Contacts || []
+    });
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    res.status(500).json({
+      error: 'Failed to fetch customers',
+      details: error.message
+    });
+  }
+});
+
+// Get customer invoices
+router.get('/xero/customer/:customerId/invoices', async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    
+    if (!global.xeroTokens?.access_token) {
+      throw new Error('Not authenticated with Xero');
+    }
+
+    // Get organization first
+    const tenantsResponse = await fetch('https://api.xero.com/connections', {
+      headers: {
+        'Authorization': `Bearer ${global.xeroTokens.access_token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!tenantsResponse.ok) {
+      throw new Error('Failed to get organization');
+    }
+
+    const tenants = await tenantsResponse.json();
+    if (!tenants || tenants.length === 0) {
+      throw new Error('No organizations found');
+    }
+
+    const tenantId = tenants[0].tenantId;
+
+    // Get invoices
+    const invoicesResponse = await fetch(
+      `https://api.xero.com/api.xro/2.0/Invoices?where=Contact.ContactID=guid(${customerId})`, {
+        headers: {
+          'Authorization': `Bearer ${global.xeroTokens.access_token}`,
+          'Content-Type': 'application/json',
+          'Xero-tenant-id': tenantId
+        }
+      }
+    );
+
+    if (!invoicesResponse.ok) {
+      const errorText = await invoicesResponse.text();
+      throw new Error(`Failed to get invoices: ${invoicesResponse.status} ${errorText}`);
+    }
+
+    const invoicesData = await invoicesResponse.json();
+    
+    // Transform to match CSV format
+    const transformedInvoices = invoicesData.Invoices.map(invoice => ({
+      transaction_number: invoice.InvoiceNumber,
+      transaction_type: invoice.Type,
+      amount: invoice.Total,
+      issue_date: invoice.Date,
+      due_date: invoice.DueDate,
+      status: invoice.Status,
+      reference: invoice.Reference || ''
+    }));
+
+    res.json({
+      success: true,
+      invoices: transformedInvoices
+    });
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    res.status(500).json({
+      error: 'Failed to fetch invoices',
+      details: error.message
+    });
+  }
+});
+
 export default router;
