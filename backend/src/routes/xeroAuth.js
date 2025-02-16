@@ -83,29 +83,49 @@ router.get('/xero/callback', async (req, res) => {
     console.log('Exchanging code for tokens...');
     
     try {
-      // Exchange code for tokens using OpenID Connect
-      const tokenSet = await xero.initialize();
-      await xero.setTokenSet({
-        id_token: tokenSet.id_token,
-        access_token: tokenSet.access_token,
-        expires_in: tokenSet.expires_in,
-        token_type: 'Bearer',
-        refresh_token: tokenSet.refresh_token,
-        scope: tokenSet.scope
+      const redirectUri = process.env.XERO_REDIRECT_URI || 'https://ledger-match-backend.onrender.com/auth/xero/callback';
+
+      // Exchange authorization code for tokens
+      const tokenResponse = await fetch('https://identity.xero.com/connect/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Basic ' + Buffer.from(`${process.env.XERO_CLIENT_ID}:${process.env.XERO_CLIENT_SECRET}`).toString('base64')
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri
+        }).toString()
       });
 
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        console.error('Token exchange failed:', errorData);
+        throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorData}`);
+      }
+
+      const tokenData = await tokenResponse.json();
       console.log('Token exchange successful:', {
-        hasAccessToken: !!tokenSet.access_token,
-        hasRefreshToken: !!tokenSet.refresh_token,
-        expiresIn: tokenSet.expires_in
+        hasAccessToken: !!tokenData.access_token,
+        hasRefreshToken: !!tokenData.refresh_token,
+        expiresIn: tokenData.expires_in
       });
-      
-      // Store the tokens (implementation depends on your storage solution)
-      // For now, we'll store in memory
+
+      // Store the tokens
       global.xeroTokens = {
-        ...tokenSet,
-        expires_at: Date.now() + (tokenSet.expires_in * 1000)
+        ...tokenData,
+        expires_at: Date.now() + (tokenData.expires_in * 1000)
       };
+
+      // Initialize Xero client with the new tokens
+      await xero.setTokenSet({
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_in: tokenData.expires_in,
+        token_type: tokenData.token_type,
+        scope: tokenData.scope
+      });
 
       console.log('Redirecting to frontend:', process.env.FRONTEND_URL);
       // Redirect back to the frontend
