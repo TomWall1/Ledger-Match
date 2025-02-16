@@ -118,18 +118,11 @@ router.get('/xero/callback', async (req, res) => {
         expires_at: Date.now() + (tokenData.expires_in * 1000)
       };
 
-      // Initialize Xero client with the new tokens
-      await xero.setTokenSet({
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_in: tokenData.expires_in,
-        token_type: tokenData.token_type,
-        scope: tokenData.scope
-      });
-
       console.log('Redirecting to frontend:', process.env.FRONTEND_URL);
-      // Redirect back to the frontend
-      res.redirect(`${process.env.FRONTEND_URL || 'https://ledger-match.vercel.app'}?success=true`);
+      // Redirect back to the frontend with auth state
+      const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
+      res.redirect(`${frontendUrl}/xero-success?authenticated=true&token=${encodeURIComponent(tokenData.access_token)}`);
+
     } catch (tokenError) {
       console.error('Token exchange error:', tokenError);
       throw new Error(`Token exchange failed: ${tokenError.message}`);
@@ -137,7 +130,7 @@ router.get('/xero/callback', async (req, res) => {
   } catch (error) {
     console.error('Error in Xero callback:', error);
     const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
-    res.redirect(`${frontendUrl}?error=${encodeURIComponent(error.message)}`);
+    res.redirect(`${frontendUrl}/xero-error?error=${encodeURIComponent(error.message)}`);
   }
 });
 
