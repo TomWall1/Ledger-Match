@@ -110,13 +110,15 @@ router.get('/xero/customers', requireXeroAuth, async (req, res) => {
   try {
     // Get organization first
     const tenantsResponse = await fetch('https://api.xero.com/connections', {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${req.xeroTokens.access_token}`,
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       }
     });
 
     if (!tenantsResponse.ok) {
+      console.error('Failed to get tenants:', await tenantsResponse.text());
       throw new Error('Failed to get organization');
     }
 
@@ -126,24 +128,29 @@ router.get('/xero/customers', requireXeroAuth, async (req, res) => {
     }
 
     const tenantId = tenants[0].tenantId;
+    console.log('Using tenant:', { id: tenantId, name: tenants[0].tenantName });
 
     // Get customers
     const customersResponse = await fetch(
       'https://api.xero.com/api.xro/2.0/Contacts?where=IsCustomer=true', {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${req.xeroTokens.access_token}`,
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Xero-tenant-id': tenantId
         }
       }
     );
 
+    console.log('Customer response status:', customersResponse.status);
+    const responseText = await customersResponse.text();
+    console.log('Customer response:', responseText);
+
     if (!customersResponse.ok) {
-      const errorText = await customersResponse.text();
-      throw new Error(`Failed to get customers: ${customersResponse.status} ${errorText}`);
+      throw new Error(`Failed to get customers: ${customersResponse.status} ${responseText}`);
     }
 
-    const customersData = await customersResponse.json();
+    const customersData = JSON.parse(responseText);
     res.json({
       success: true,
       customers: customersData.Contacts || []
@@ -164,9 +171,10 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
 
     // Get organization first
     const tenantsResponse = await fetch('https://api.xero.com/connections', {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${req.xeroTokens.access_token}`,
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       }
     });
 
@@ -184,20 +192,23 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
     // Get invoices
     const invoicesResponse = await fetch(
       `https://api.xero.com/api.xro/2.0/Invoices?where=Contact.ContactID=guid(${customerId})`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${req.xeroTokens.access_token}`,
-          'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'Xero-tenant-id': tenantId
         }
       }
     );
 
+    const responseText = await invoicesResponse.text();
+    console.log('Invoice response:', responseText);
+
     if (!invoicesResponse.ok) {
-      const errorText = await invoicesResponse.text();
-      throw new Error(`Failed to get invoices: ${invoicesResponse.status} ${errorText}`);
+      throw new Error(`Failed to get invoices: ${invoicesResponse.status} ${responseText}`);
     }
 
-    const invoicesData = await invoicesResponse.json();
+    const invoicesData = JSON.parse(responseText);
     
     // Transform to match CSV format
     const transformedInvoices = (invoicesData.Invoices || []).map(invoice => ({
