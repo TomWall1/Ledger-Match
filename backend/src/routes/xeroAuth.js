@@ -21,7 +21,8 @@ const xero = new XeroClient({
   clientSecret: process.env.XERO_CLIENT_SECRET,
   redirectUris: [process.env.XERO_REDIRECT_URI || 'https://ledger-match-backend.onrender.com/auth/xero/callback'],
   scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read'],
-  httpTimeout: 30000 // 30 second timeout
+  httpTimeout: 30000, // 30 second timeout
+  state: crypto.randomBytes(16).toString('hex')
 });
 
 // Initial Xero connection route
@@ -80,24 +81,39 @@ router.get('/xero/callback', async (req, res) => {
     }
 
     console.log('Exchanging code for tokens...');
-    // Exchange the code for tokens
-    const tokenSet = await xero.apiCallback(code);
-    console.log('Received token set:', {
-      hasAccessToken: !!tokenSet.access_token,
-      hasRefreshToken: !!tokenSet.refresh_token,
-      expiresIn: tokenSet.expires_in
-    });
     
-    // Store the tokens (implementation depends on your storage solution)
-    // For now, we'll store in memory
-    global.xeroTokens = {
-      ...tokenSet,
-      expires_at: Date.now() + (tokenSet.expires_in * 1000)
-    };
+    try {
+      // Exchange code for tokens using OpenID Connect
+      const tokenSet = await xero.initialize();
+      await xero.setTokenSet({
+        id_token: tokenSet.id_token,
+        access_token: tokenSet.access_token,
+        expires_in: tokenSet.expires_in,
+        token_type: 'Bearer',
+        refresh_token: tokenSet.refresh_token,
+        scope: tokenSet.scope
+      });
 
-    console.log('Redirecting to frontend:', process.env.FRONTEND_URL);
-    // Redirect back to the frontend
-    res.redirect(`${process.env.FRONTEND_URL || 'https://ledger-match.vercel.app'}?success=true`);
+      console.log('Token exchange successful:', {
+        hasAccessToken: !!tokenSet.access_token,
+        hasRefreshToken: !!tokenSet.refresh_token,
+        expiresIn: tokenSet.expires_in
+      });
+      
+      // Store the tokens (implementation depends on your storage solution)
+      // For now, we'll store in memory
+      global.xeroTokens = {
+        ...tokenSet,
+        expires_at: Date.now() + (tokenSet.expires_in * 1000)
+      };
+
+      console.log('Redirecting to frontend:', process.env.FRONTEND_URL);
+      // Redirect back to the frontend
+      res.redirect(`${process.env.FRONTEND_URL || 'https://ledger-match.vercel.app'}?success=true`);
+    } catch (tokenError) {
+      console.error('Token exchange error:', tokenError);
+      throw new Error(`Token exchange failed: ${tokenError.message}`);
+    }
   } catch (error) {
     console.error('Error in Xero callback:', error);
     const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
