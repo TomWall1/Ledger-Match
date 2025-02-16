@@ -2,6 +2,7 @@ import express from 'express';
 import { XeroClient } from 'xero-node';
 import fetch from 'node-fetch';
 import crypto from 'crypto';
+import { tokenStore } from '../utils/tokenStore.js';
 
 const router = express.Router();
 const pendingStates = new Set();
@@ -14,6 +15,23 @@ const xero = new XeroClient({
   scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read'],
   httpTimeout: 30000
 });
+
+// Middleware to verify Xero authentication
+const requireXeroAuth = async (req, res, next) => {
+  try {
+    const tokens = await tokenStore.getValidTokens();
+    if (!tokens) {
+      throw new Error('Not authenticated with Xero');
+    }
+    req.xeroTokens = tokens;
+    next();
+  } catch (error) {
+    res.status(401).json({
+      error: 'Authentication required',
+      details: error.message
+    });
+  }
+};
 
 // Initial Xero connection route
 router.get('/xero', async (req, res) => {
@@ -75,11 +93,8 @@ router.get('/xero/callback', async (req, res) => {
       expiresIn: tokens.expires_in
     });
 
-    // Store tokens
-    global.xeroTokens = {
-      ...tokens,
-      expires_at: Date.now() + (tokens.expires_in * 1000)
-    };
+    // Store tokens in Redis
+    await tokenStore.saveTokens(tokens);
 
     const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
     res.redirect(`${frontendUrl}?authenticated=true`);
@@ -91,16 +106,12 @@ router.get('/xero/callback', async (req, res) => {
 });
 
 // Get Xero customers
-router.get('/xero/customers', async (req, res) => {
+router.get('/xero/customers', requireXeroAuth, async (req, res) => {
   try {
-    if (!global.xeroTokens?.access_token) {
-      throw new Error('Not authenticated with Xero');
-    }
-
     // Get organization first
     const tenantsResponse = await fetch('https://api.xero.com/connections', {
       headers: {
-        'Authorization': `Bearer ${global.xeroTokens.access_token}`,
+        'Authorization': `Bearer ${req.xeroTokens.access_token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -120,7 +131,7 @@ router.get('/xero/customers', async (req, res) => {
     const customersResponse = await fetch(
       'https://api.xero.com/api.xro/2.0/Contacts?where=IsCustomer=true', {
         headers: {
-          'Authorization': `Bearer ${global.xeroTokens.access_token}`,
+          'Authorization': `Bearer ${req.xeroTokens.access_token}`,
           'Content-Type': 'application/json',
           'Xero-tenant-id': tenantId
         }
@@ -147,18 +158,14 @@ router.get('/xero/customers', async (req, res) => {
 });
 
 // Get customer invoices
-router.get('/xero/customer/:customerId/invoices', async (req, res) => {
+router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, res) => {
   try {
     const { customerId } = req.params;
-    
-    if (!global.xeroTokens?.access_token) {
-      throw new Error('Not authenticated with Xero');
-    }
 
     // Get organization first
     const tenantsResponse = await fetch('https://api.xero.com/connections', {
       headers: {
-        'Authorization': `Bearer ${global.xeroTokens.access_token}`,
+        'Authorization': `Bearer ${req.xeroTokens.access_token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -178,7 +185,7 @@ router.get('/xero/customer/:customerId/invoices', async (req, res) => {
     const invoicesResponse = await fetch(
       `https://api.xero.com/api.xro/2.0/Invoices?where=Contact.ContactID=guid(${customerId})`, {
         headers: {
-          'Authorization': `Bearer ${global.xeroTokens.access_token}`,
+          'Authorization': `Bearer ${req.xeroTokens.access_token}`,
           'Content-Type': 'application/json',
           'Xero-tenant-id': tenantId
         }
