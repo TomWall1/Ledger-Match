@@ -1,87 +1,36 @@
-const AUTH_STORAGE_KEY = 'xero_auth_state';
+const LOCAL_STORAGE_KEY = 'xero_auth_state';
 
 export const AuthUtils = {
-  setAuthState(state) {
-    try {
-      const authState = {
-        isAuthenticated: state.isAuthenticated,
-        tenants: state.tenants,
-        lastChecked: new Date().toISOString(),
-      };
-      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
-    } catch (error) {
-      console.error('Error storing auth state:', error);
-    }
+  setAuthState: (state) => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
+      ...state,
+      timestamp: Date.now()
+    }));
   },
 
-  getAuthState() {
-    try {
-      const state = sessionStorage.getItem(AUTH_STORAGE_KEY);
-      if (!state) return { isAuthenticated: false };
-      
-      return JSON.parse(state);
-    } catch (error) {
-      console.error('Error reading auth state:', error);
-      return { isAuthenticated: false };
-    }
+  getAuthState: () => {
+    const state = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!state) return null;
+    return JSON.parse(state);
   },
 
-  clearAuthState() {
-    try {
-      sessionStorage.removeItem(AUTH_STORAGE_KEY);
-    } catch (error) {
-      console.error('Error clearing auth state:', error);
-    }
+  clearAuthState: () => {
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
   },
 
-  async verifyAuth() {
-    try {
-      // Check if we already have a valid token
-      const currentState = this.getAuthState();
-      if (!currentState.isAuthenticated) {
-        return false;
-      }
+  verifyAuth: async () => {
+    const state = AuthUtils.getAuthState();
+    if (!state) return false;
 
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      console.log('Verifying auth with:', apiUrl);
+    // Token is valid for 30 minutes
+    const TOKEN_VALIDITY = 30 * 60 * 1000; // 30 minutes in milliseconds
+    const isExpired = Date.now() - state.timestamp > TOKEN_VALIDITY;
 
-      const response = await fetch(`${apiUrl}/auth/verify`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('Verify response:', response.status);
-
-      if (!response.ok) {
-        this.clearAuthState();
-        return false;
-      }
-
-      const result = await response.json();
-      console.log('Verify result:', result);
-
-      if (result.authenticated) {
-        this.setAuthState({
-          isAuthenticated: true,
-          tenants: result.tenants
-        });
-        return true;
-      } else {
-        this.clearAuthState();
-        return false;
-      }
-    } catch (error) {
-      console.error('Error verifying auth:', error);
-      this.clearAuthState();
+    if (isExpired) {
+      AuthUtils.clearAuthState();
       return false;
     }
-  },
 
-  async logout() {
-    this.clearAuthState();
-    window.location.href = '/';
+    return state.isAuthenticated;
   }
 };
