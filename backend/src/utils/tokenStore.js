@@ -1,55 +1,49 @@
-import fs from 'fs/promises';
-import path from 'path';
+import Redis from 'ioredis';
 
-// Store tokens in a JSON file (for development)
-// In production, you should use a database
-const TOKEN_FILE = path.join(process.cwd(), 'tokens.json');
-
-class TokenStore {
-    constructor() {
-        this.tokens = null;
-        this.initialize();
-    }
-
-    async initialize() {
-        try {
-            const data = await fs.readFile(TOKEN_FILE, 'utf8');
-            this.tokens = JSON.parse(data);
-        } catch (error) {
-            // If file doesn't exist or is invalid, start with empty tokens
-            this.tokens = null;
-            await this.saveTokens(null);
-        }
-    }
-
-    async saveTokens(tokens) {
-        this.tokens = tokens;
-        await fs.writeFile(TOKEN_FILE, JSON.stringify(tokens, null, 2));
-    }
-
-    async getTokens() {
-        if (!this.tokens) {
-            try {
-                const data = await fs.readFile(TOKEN_FILE, 'utf8');
-                this.tokens = JSON.parse(data);
-            } catch (error) {
-                return null;
-            }
-        }
-        return this.tokens;
-    }
-
-    async clearTokens() {
-        await this.saveTokens(null);
-    }
-
-    isTokenExpired() {
-        if (!this.tokens || !this.tokens.expires_at) {
-            return true;
-        }
-        // Add 30 second buffer before actual expiration
-        return Date.now() >= (this.tokens.expires_at - 30000);
-    }
+let redis;
+if (process.env.REDIS_URL) {
+    redis = new Redis(process.env.REDIS_URL);
+} else {
+    redis = new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: process.env.REDIS_PORT || 6379,
+        password: process.env.REDIS_PASSWORD
+    });
 }
 
-export const tokenStore = new TokenStore();
+const TOKEN_KEY = 'xero_tokens';
+const TOKEN_EXPIRY = 30 * 60; // 30 minutes in seconds
+
+export const tokenStore = {
+    async saveTokens(tokens) {
+        const tokenData = {
+            ...tokens,
+            expires_at: Date.now() + (tokens.expires_in * 1000)
+        };
+        await redis.setex(TOKEN_KEY, TOKEN_EXPIRY, JSON.stringify(tokenData));
+        return tokenData;
+    },
+
+    async getTokens() {
+        const tokensStr = await redis.get(TOKEN_KEY);
+        if (!tokensStr) return null;
+        return JSON.parse(tokensStr);
+    },
+
+    async clearTokens() {
+        await redis.del(TOKEN_KEY);
+    },
+
+    async getValidTokens() {
+        const tokens = await this.getTokens();
+        if (!tokens) return null;
+
+        // Check if tokens are expired
+        if (Date.now() >= tokens.expires_at) {
+            await this.clearTokens();
+            return null;
+        }
+
+        return tokens;
+    }
+};
