@@ -27,7 +27,7 @@ export function FileUpload({ onFileSelected, accept = '.csv', label = 'Upload CS
         onChange={handleFileChange}
         accept={accept}
         className="hidden"
-        name="csvFile"
+        name="file"
       />
       <button
         onClick={handleClick}
