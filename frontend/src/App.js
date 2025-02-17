@@ -7,7 +7,6 @@ import XeroCallback from './components/XeroCallback';
 import ARSourceSelector from './components/ARSourceSelector';
 import { FileUpload } from './components/FileUpload';
 import { AuthUtils } from './utils/auth';
-import { processFiles } from './components/FileProcessor';
 
 function PrivateRoute({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,19 +16,13 @@ function PrivateRoute({ children }) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      console.log('Checking auth status with URL:', window.location.href);
       const authenticated = params.get('authenticated');
-      console.log('Authenticated param:', authenticated);
-
       if (authenticated === 'true') {
-        console.log('Setting auth from URL parameter');
         AuthUtils.setAuthState({ isAuthenticated: true });
         setIsAuthenticated(true);
         window.history.replaceState({}, document.title, window.location.pathname);
       } else {
-        console.log('Checking stored auth state');
         const authStatus = await AuthUtils.verifyAuth();
-        console.log('Auth status from storage:', authStatus);
         setIsAuthenticated(authStatus);
       }
       setIsLoading(false);
@@ -39,11 +32,9 @@ function PrivateRoute({ children }) {
   }, [location.search]);
 
   if (isLoading) {
-    console.log('Still loading auth status...');
     return <div>Loading...</div>;
   }
 
-  console.log('Rendering PrivateRoute with auth:', isAuthenticated);
   return isAuthenticated ? children : <Navigate to="/auth/xero" />;
 }
 
@@ -132,7 +123,61 @@ function MainApp() {
     setError(null);
 
     try {
-      const results = await processFiles(files, dateFormats);
+      let company1Data, company2Data;
+
+      // Process company 1 data (AR)
+      if (files.company1.type === 'csv') {
+        const formData1 = new FormData();
+        formData1.append('file', files.company1.file);
+        formData1.append('dateFormat', dateFormats.company1);
+        
+        const response1 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
+          method: 'POST',
+          body: formData1
+        });
+
+        if (!response1.ok) {
+          throw new Error('Failed to process first CSV file');
+        }
+
+        company1Data = await response1.json();
+      } else {
+        company1Data = files.company1.data;
+      }
+
+      // Process company 2 data (AP)
+      const formData2 = new FormData();
+      formData2.append('file', files.company2.file);
+      formData2.append('dateFormat', dateFormats.company2);
+
+      const response2 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
+        method: 'POST',
+        body: formData2
+      });
+
+      if (!response2.ok) {
+        throw new Error('Failed to process second CSV file');
+      }
+
+      company2Data = await response2.json();
+
+      // Perform matching
+      const matchResults = await fetch('https://ledger-match-backend.onrender.com/match-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          company1Data,
+          company2Data
+        })
+      });
+
+      if (!matchResults.ok) {
+        throw new Error('Failed to match data');
+      }
+
+      const results = await matchResults.json();
       setMatches(results);
       setCurrentScreen('results');
     } catch (error) {
@@ -249,8 +294,7 @@ function MainApp() {
   );
 }
 
-function App() {
-  console.log('Rendering App component');
+const App = () => {
   return (
     <Router>
       <Routes>
@@ -267,7 +311,6 @@ function App() {
       </Routes>
     </Router>
   );
-}
+};
 
-export { App };
 export default App;
