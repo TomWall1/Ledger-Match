@@ -120,7 +120,7 @@ const parseDateString = (dateStr, format) => {
 };
 
 // Process single CSV file
-router.post('/process-csv', upload.single('csvFile'), async (req, res, next) => {
+router.post('/process-csv', upload.single('file'), async (req, res, next) => {
   let filePath = null;
   
   try {
