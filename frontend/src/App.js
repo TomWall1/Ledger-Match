@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import MatchingResults from './components/MatchingResults';
-import DateFormatSelect from './components/DateFormatSelect';
-import XeroAuth from './components/XeroAuth';
-import XeroCallback from './components/XeroCallback';
-import ARSourceSelector from './components/ARSourceSelector';
-import { FileUpload } from './components/FileUpload';
-import { AuthUtils } from './utils/auth';
+import MatchingResults from './components/MatchingResults.jsx';
+import DateFormatSelect from './components/DateFormatSelect.jsx';
+import XeroAuth from './components/XeroAuth.js';
+import XeroCallback from './components/XeroCallback.js';
+import ARSourceSelector from './components/ARSourceSelector.js';
+import { FileUpload } from './components/FileUpload.jsx';
+import { AuthUtils } from './utils/auth.js';
 
 function PrivateRoute({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
