@@ -25,7 +25,7 @@ const handleProcessFiles = async () => {
       // Process company 1 data (AR)
       if (files.company1.type === 'csv') {
         const formData1 = new FormData();
-        formData1.append('csvFile', files.company1.file);
+        formData1.append('file', files.company1.file);
         formData1.append('dateFormat', dateFormats.company1);
         
         const response1 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
@@ -46,7 +46,7 @@ const handleProcessFiles = async () => {
 
       // Process company 2 data (AP)
       const formData2 = new FormData();
-      formData2.append('csvFile', files.company2.file);
+      formData2.append('file', files.company2.file);
       formData2.append('dateFormat', dateFormats.company2);
 
       const response2 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
