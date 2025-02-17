@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import xeroRoutes from './routes/xeroAuth.js';
+import fileRoutes from './routes/fileRoutes.js';
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Mount routes
 app.use('/auth', xeroRoutes);
+app.use('/', fileRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
