@@ -34,13 +34,14 @@ router.use((req, res, next) => {
 // Helper function to clean amount values
 const cleanAmount = (amountStr) => {
   if (!amountStr) return 0;
-  const str = amountStr.toString();
   try {
-    const cleaned = str
+    // Remove currency symbols and extra spaces
+    const cleaned = amountStr.toString()
       .replace(/[$£€¥]/g, '')
       .replace(/,/g, '')
       .replace(/\s/g, '')
       .trim();
+
     const amount = parseFloat(cleaned);
     if (isNaN(amount)) {
       throw new ValidationError(`Invalid amount value: ${amountStr}`);
@@ -49,6 +50,11 @@ const cleanAmount = (amountStr) => {
   } catch (error) {
     throw new ValidationError(`Error processing amount value: ${amountStr}`);
   }
+};
+
+// Helper function to clean and pad date components
+const padDateComponent = (component) => {
+  return component.toString().padStart(2, '0');
 };
 
 // Function to parse date strings
@@ -66,35 +72,48 @@ const parseDateString = (dateStr, format) => {
     let day, month, year;
     dateStr = dateStr.trim();
 
+    // Split by either slash or dash
+    const parts = dateStr.split(/[\/\-]/).map(part => part.trim());
+    
+    if (parts.length !== 3) {
+      throw new ValidationError(`Invalid date format: ${dateStr}`);
+    }
+
     switch (format) {
       case 'YYYY-MM-DD':
-        [year, month, day] = dateStr.split('-').map(Number);
+        [year, month, day] = parts;
         break;
       case 'DD/MM/YYYY':
-        [day, month, year] = dateStr.split('/').map(Number);
+        [day, month, year] = parts;
         break;
       case 'MM/DD/YYYY':
-        [month, day, year] = dateStr.split('/').map(Number);
+        [month, day, year] = parts;
         break;
       case 'DD-MM-YYYY':
-        [day, month, year] = dateStr.split('-').map(Number);
+        [day, month, year] = parts;
         break;
       case 'MM-DD-YYYY':
-        [month, day, year] = dateStr.split('-').map(Number);
+        [month, day, year] = parts;
         break;
       default:
         throw new ValidationError(`Unsupported date format: ${format}`);
     }
 
+    // Convert to numbers and pad with zeros
+    day = padDateComponent(parseInt(day, 10));
+    month = padDateComponent(parseInt(month, 10));
+    year = parseInt(year, 10);
+
     if (isNaN(day) || isNaN(month) || isNaN(year)) {
       throw new ValidationError(`Invalid date components: ${dateStr}`);
     }
 
-    const date = new Date(year, month - 1, day);
+    const date = new Date(year, month - 1, parseInt(day, 10));
     if (!isValidDate(date)) {
       throw new ValidationError(`Invalid date: ${dateStr}`);
     }
-    return date.toISOString().split('T')[0];
+
+    return `${year}-${month}-${day}`;
   } catch (error) {
     throw new ValidationError(`Error parsing date ${dateStr} with format ${format}: ${error.message}`);
   }
@@ -123,7 +142,7 @@ router.post('/process-csv', upload.single('csvFile'), async (req, res, next) => 
     validateFile(req.file);
 
     // Validate date format
-    const dateFormat = req.body.dateFormat || 'YYYY-MM-DD';
+    const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
     validateDateFormat(dateFormat);
 
     console.log('Processing file:', req.file.originalname, 'with format:', dateFormat);
@@ -134,30 +153,22 @@ router.post('/process-csv', upload.single('csvFile'), async (req, res, next) => 
 
     await new Promise((resolve, reject) => {
       fs.createReadStream(filePath)
-        .pipe(csv())
+        .pipe(csv({
+          separator: ',',
+          skipLines: 0,
+          headers: ['transaction_number', 'transaction_type', 'amount', 'issue_date', 'due_date', 'status', 'reference'],
+          strict: true
+        }))
         .on('data', (row) => {
           rowNum++;
           try {
             console.log(`Processing row ${rowNum}:`, row);
 
-            // Validate required fields
-            if (!row.transaction_number) {
-              throw new ValidationError(`Missing transaction number at row ${rowNum}`);
-            }
-            if (!row.transaction_type) {
-              throw new ValidationError(`Missing transaction type at row ${rowNum}`);
-            }
-            if (!row.amount) {
-              throw new ValidationError(`Missing amount at row ${rowNum}`);
-            }
-            if (!row.issue_date) {
-              throw new ValidationError(`Missing issue date at row ${rowNum}`);
-            }
-            if (!row.due_date) {
-              throw new ValidationError(`Missing due date at row ${rowNum}`);
-            }
-            if (!row.status) {
-              throw new ValidationError(`Missing status at row ${rowNum}`);
+            // Basic validation
+            if (!row.transaction_number || !row.transaction_type || !row.amount || 
+                !row.issue_date || !row.due_date || !row.status) {
+              console.log('Invalid row data:', row);
+              throw new ValidationError(`Missing required fields in row ${rowNum}`);
             }
 
             // Process the data
@@ -173,6 +184,7 @@ router.post('/process-csv', upload.single('csvFile'), async (req, res, next) => 
 
             results.push(cleanedData);
           } catch (error) {
+            console.error(`Error processing row ${rowNum}:`, error);
             reject(new DataProcessingError(`Error processing row ${rowNum}: ${error.message}`));
           }
         })
@@ -184,6 +196,7 @@ router.post('/process-csv', upload.single('csvFile'), async (req, res, next) => 
           }
         })
         .on('error', (error) => {
+          console.error('CSV parsing error:', error);
           reject(new DataProcessingError(`Error reading CSV: ${error.message}`));
         });
     });
