@@ -13,95 +13,100 @@ import {
 
 const router = express.Router();
 
-// Configure multer with basic settings
-const upload = multer({
-  storage: multer.memoryStorage(),
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    console.log('Multer processing file:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype
+    });
+    if (!file.originalname.toLowerCase().endsWith('.csv')) {
+      return cb(new Error('Only CSV files are allowed'));
+    }
+    cb(null, true);
   }
-}).single('csvFile'); // Change field name to 'csvFile'
+}).any(); // Accept any files, we'll validate them later
 
 // Process single CSV file
-router.post('/process-csv', (req, res) => {
-  upload(req, res, async (err) => {
+router.post('/process-csv', async (req, res, next) => {
+  upload(req, res, async function(err) {
     try {
+      console.log('Request headers:', req.headers);
+      console.log('Request files:', req.files);
+      console.log('Request body:', req.body);
+
       if (err) {
         console.error('Multer error:', err);
-        return res.status(400).json({
-          error: err.message,
-          details: err
-        });
+        throw new Error(err.message);
       }
 
-      if (!req.file) {
-        return res.status(400).json({
-          error: 'No file provided'
-        });
+      if (!req.files || req.files.length === 0) {
+        throw new Error('No file provided');
       }
 
-      console.log('Received file:', {
-        fieldname: req.file.fieldname,
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      });
-
+      const file = req.files[0]; // Get the first file
       const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
-      const results = [];
 
-      // Convert buffer to string and process CSV
-      const fileContent = req.file.buffer.toString('utf8');
-      const rows = fileContent.split('\n');
-      
-      // Skip header row
-      const dataRows = rows.slice(1);
+      // Convert buffer to string and parse CSV
+      const fileContent = file.buffer.toString('utf8');
+      console.log('File content preview:', fileContent.substring(0, 200));
 
-      for (let i = 0; i < dataRows.length; i++) {
-        const row = dataRows[i];
-        if (!row.trim()) continue; // Skip empty rows
+      const rows = fileContent.split('\n')
+        .map(row => row.trim())
+        .filter(row => row.length > 0);
 
-        const [transaction_number, transaction_type, amount, issue_date, due_date, status, reference] = 
-          row.split(',').map(field => field.trim());
-
-        try {
-          if (!transaction_number || !transaction_type || !amount || !issue_date || !due_date || !status) {
-            throw new Error(`Missing required fields in row ${i + 2}`);
-          }
-
-          // Process the data
-          const cleanedData = {
-            transactionNumber: transaction_number,
-            type: transaction_type,
-            amount: cleanAmount(amount),
-            date: parseDateString(issue_date, dateFormat),
-            dueDate: parseDateString(due_date, dateFormat),
-            status: status,
-            reference: reference || ''
-          };
-
-          results.push(cleanedData);
-        } catch (error) {
-          console.error(`Error processing row ${i + 2}:`, error);
-          return res.status(400).json({
-            error: `Error in row ${i + 2}: ${error.message}`,
-            row: row
-          });
+      // Get headers and validate
+      const headers = rows[0].split(',').map(h => h.trim());
+      const requiredHeaders = ['transaction_number', 'transaction_type', 'amount', 'issue_date', 'due_date', 'status'];
+      for (const required of requiredHeaders) {
+        if (!headers.includes(required)) {
+          throw new Error(`Missing required header: ${required}`);
         }
       }
 
-      if (results.length === 0) {
-        return res.status(400).json({
-          error: 'No valid data found in CSV file'
+      // Process data rows
+      const results = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const values = row.split(',').map(v => v.trim());
+        if (values.length !== headers.length) {
+          throw new Error(`Row ${i + 1} has incorrect number of fields`);
+        }
+
+        const rowData = {};
+        headers.forEach((header, index) => {
+          rowData[header] = values[index];
         });
+
+        try {
+          const cleanedData = {
+            transactionNumber: String(rowData.transaction_number),
+            type: String(rowData.transaction_type),
+            amount: cleanAmount(rowData.amount),
+            date: parseDateString(rowData.issue_date, dateFormat),
+            dueDate: parseDateString(rowData.due_date, dateFormat),
+            status: String(rowData.status),
+            reference: rowData.reference ? String(rowData.reference) : ''
+          };
+          results.push(cleanedData);
+        } catch (error) {
+          throw new Error(`Error in row ${i + 1}: ${error.message}`);
+        }
       }
 
+      console.log(`Successfully processed ${results.length} rows`);
       res.json(results);
-
     } catch (error) {
-      console.error('Error processing file:', error);
+      console.error('Processing error:', error);
       res.status(500).json({
         error: error.message,
-        details: error
+        path: req.path,
+        timestamp: new Date().toISOString()
       });
     }
   });
