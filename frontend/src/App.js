@@ -133,11 +133,16 @@ function MainApp() {
         
         const response1 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
           method: 'POST',
-          body: formData1
+          body: formData1,
+          headers: {
+            'Origin': 'https://ledger-match.vercel.app'
+          }
         });
 
         if (!response1.ok) {
-          throw new Error('Failed to process first CSV file');
+          const errorData = await response1.text();
+          console.error('Server error:', errorData);
+          throw new Error(`Failed to process first CSV file: ${errorData}`);
         }
 
         company1Data = await response1.json();
@@ -152,11 +157,16 @@ function MainApp() {
 
       const response2 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
         method: 'POST',
-        body: formData2
+        body: formData2,
+        headers: {
+          'Origin': 'https://ledger-match.vercel.app'
+        }
       });
 
       if (!response2.ok) {
-        throw new Error('Failed to process second CSV file');
+        const errorData = await response2.text();
+        console.error('Server error:', errorData);
+        throw new Error(`Failed to process second CSV file: ${errorData}`);
       }
 
       company2Data = await response2.json();
@@ -165,7 +175,8 @@ function MainApp() {
       const matchResults = await fetch('https://ledger-match-backend.onrender.com/match-data', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Origin': 'https://ledger-match.vercel.app'
         },
         body: JSON.stringify({
           company1Data,
@@ -174,7 +185,9 @@ function MainApp() {
       });
 
       if (!matchResults.ok) {
-        throw new Error('Failed to match data');
+        const errorData = await matchResults.text();
+        console.error('Server error:', errorData);
+        throw new Error(`Failed to match data: ${errorData}`);
       }
 
       const results = await matchResults.json();
