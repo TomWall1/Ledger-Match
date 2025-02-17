@@ -1,14 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import MatchingResults from './components/MatchingResults.jsx';
-import DateFormatSelect from './components/DateFormatSelect.jsx';
-import XeroAuth from './components/XeroAuth.js';
-import XeroCallback from './components/XeroCallback.js';
-import ARSourceSelector from './components/ARSourceSelector.js';
-import { FileUpload } from './components/FileUpload.jsx';
-import { AuthUtils } from './utils/auth.js';
-
-// ... (previous code remains the same until handleProcessFiles)
+// ... previous imports stay the same ...
 
 const handleProcessFiles = async () => {
     if (!files.company1 || !files.company2) {
@@ -25,10 +15,15 @@ const handleProcessFiles = async () => {
       // Process company 1 data (AR)
       if (files.company1.type === 'csv') {
         const formData1 = new FormData();
-        console.log('Processing file 1:', files.company1.file);
-        formData1.append('upload', files.company1.file, files.company1.file.name);
+        formData1.append('csvFile', files.company1.file);
         formData1.append('dateFormat', dateFormats.company1);
         
+        console.log('Sending file 1:', {
+          name: files.company1.file.name,
+          size: files.company1.file.size,
+          type: files.company1.file.type
+        });
+
         const response1 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
           method: 'POST',
           body: formData1
@@ -47,9 +42,14 @@ const handleProcessFiles = async () => {
 
       // Process company 2 data (AP)
       const formData2 = new FormData();
-      console.log('Processing file 2:', files.company2.file);
-      formData2.append('upload', files.company2.file, files.company2.file.name);
+      formData2.append('csvFile', files.company2.file);
       formData2.append('dateFormat', dateFormats.company2);
+
+      console.log('Sending file 2:', {
+        name: files.company2.file.name,
+        size: files.company2.file.size,
+        type: files.company2.file.type
+      });
 
       const response2 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
         method: 'POST',
