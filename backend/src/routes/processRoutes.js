@@ -14,67 +14,53 @@ import {
 const router = express.Router();
 
 // Configure multer with simple storage
-const upload = multer({
-  storage: multer.memoryStorage(),
-  fileFilter: (req, file, cb) => {
-    console.log('Received file:', {
-      fieldname: file.fieldname,
-      originalname: file.originalname,
-      mimetype: file.mimetype
-    });
-    if (!file.originalname.toLowerCase().endsWith('.csv')) {
-      return cb(new Error('Only CSV files are allowed'));
-    }
-    cb(null, true);
-  },
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-}).fields([
-  { name: 'csvFile', maxCount: 1 }
-]);
+}).single('csvFile');
 
 // Process CSV file
 router.post('/process-csv', (req, res) => {
-  upload(req, res, function(err) {
+  upload(req, res, async function(err) {
     try {
-      console.log('Request received:', {
+      console.log('Upload request received:', {
         body: req.body,
-        files: req.files,
-        headers: req.headers
+        file: req.file ? {
+          fieldname: req.file.fieldname,
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        } : null
       });
 
-      if (err instanceof multer.MulterError) {
-        console.error('Multer error:', err);
+      if (err) {
+        console.error('Upload error:', err);
         return res.status(400).json({
-          error: `Upload error: ${err.message}`,
-          code: err.code
-        });
-      } else if (err) {
-        console.error('Other error:', err);
-        return res.status(500).json({
-          error: `Server error: ${err.message}`
+          error: err.message,
+          details: err
         });
       }
 
-      if (!req.files || !req.files.csvFile || !req.files.csvFile[0]) {
+      if (!req.file) {
+        console.error('No file in request');
         return res.status(400).json({
-          error: 'No CSV file provided'
+          error: 'No file provided'
         });
       }
 
-      const file = req.files.csvFile[0];
       const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
+      console.log('Using date format:', dateFormat);
 
-      console.log('Processing file:', {
-        originalname: file.originalname,
-        size: file.size,
-        dateFormat: dateFormat
-      });
+      // Convert buffer to string and process CSV
+      const fileContent = req.file.buffer.toString('utf8');
+      console.log('File content preview:', fileContent.substring(0, 200));
 
-      // Parse CSV content
-      const fileContent = file.buffer.toString('utf8');
-      const lines = fileContent.split('\n').map(line => line.trim()).filter(line => line);
+      const lines = fileContent.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
 
       if (lines.length < 2) {
         return res.status(400).json({
@@ -82,20 +68,35 @@ router.post('/process-csv', (req, res) => {
         });
       }
 
-      // Process CSV data
+      // Get headers
       const headers = lines[0].split(',').map(h => h.trim());
-      const results = [];
+      console.log('CSV Headers:', headers);
 
+      // Validate required headers
+      const requiredHeaders = ['transaction_number', 'transaction_type', 'amount', 'issue_date', 'due_date', 'status'];
+      for (const required of requiredHeaders) {
+        if (!headers.includes(required)) {
+          return res.status(400).json({
+            error: `Missing required header: ${required}`,
+            headers: headers
+          });
+        }
+      }
+
+      // Process data rows
+      const results = [];
       for (let i = 1; i < lines.length; i++) {
-        const row = lines[i];
-        const values = row.split(',').map(v => v.trim());
+        const line = lines[i];
+        const values = line.split(',').map(v => v.trim());
 
         if (values.length !== headers.length) {
           return res.status(400).json({
-            error: `Row ${i + 1} has incorrect number of fields`
+            error: `Row ${i + 1} has ${values.length} fields but expected ${headers.length}`,
+            row: line
           });
         }
 
+        // Create object from headers and values
         const rowData = {};
         headers.forEach((header, index) => {
           rowData[header] = values[index];
@@ -113,7 +114,8 @@ router.post('/process-csv', (req, res) => {
           });
         } catch (error) {
           return res.status(400).json({
-            error: `Error in row ${i + 1}: ${error.message}`
+            error: `Error in row ${i + 1}: ${error.message}`,
+            row: rowData
           });
         }
       }
@@ -122,9 +124,10 @@ router.post('/process-csv', (req, res) => {
       res.json(results);
 
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Processing error:', error);
       res.status(500).json({
-        error: error.message
+        error: error.message,
+        details: error
       });
     }
   });
