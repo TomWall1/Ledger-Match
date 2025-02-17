@@ -13,6 +13,7 @@ const corsOptions = {
   origin: 'https://ledger-match.vercel.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 };
 
