@@ -12,9 +12,9 @@ const app = express();
 const corsOptions = {
   origin: 'https://ledger-match.vercel.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
-  exposedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'],
+  credentials: true,
+  maxAge: 86400 // Cache preflight requests for 24 hours
 };
 
 // Enable CORS with configured options
