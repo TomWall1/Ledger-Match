@@ -1,14 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import MatchingResults from './components/MatchingResults.jsx';
-import DateFormatSelect from './components/DateFormatSelect.jsx';
-import XeroAuth from './components/XeroAuth.js';
-import XeroCallback from './components/XeroCallback.js';
-import ARSourceSelector from './components/ARSourceSelector.js';
-import { FileUpload } from './components/FileUpload.jsx';
-import { AuthUtils } from './utils/auth.js';
-
-// ... (previous code remains the same until handleProcessFiles)
+// ... (previous imports remain the same)
 
 const handleProcessFiles = async () => {
     if (!files.company1 || !files.company2) {
@@ -25,9 +15,11 @@ const handleProcessFiles = async () => {
       // Process company 1 data (AR)
       if (files.company1.type === 'csv') {
         const formData1 = new FormData();
-        formData1.append('file', files.company1.file);
+        formData1.append('upload', files.company1.file); // Changed to 'upload'
         formData1.append('dateFormat', dateFormats.company1);
         
+        console.log('Sending file:', files.company1.file.name);
+
         const response1 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
           method: 'POST',
           body: formData1
@@ -46,8 +38,10 @@ const handleProcessFiles = async () => {
 
       // Process company 2 data (AP)
       const formData2 = new FormData();
-      formData2.append('file', files.company2.file);
+      formData2.append('upload', files.company2.file); // Changed to 'upload'
       formData2.append('dateFormat', dateFormats.company2);
+
+      console.log('Sending file:', files.company2.file.name);
 
       const response2 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
         method: 'POST',
