@@ -13,123 +13,103 @@ import {
 
 const router = express.Router();
 
-// Configure multer with simple storage
+// Basic multer configuration
+const storage = multer.memoryStorage();
 const upload = multer({ 
-  storage: multer.memoryStorage(),
+  storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
 }).single('file');
 
 // Process CSV file
-router.post('/process-csv', (req, res) => {
-  console.log('Processing request headers:', req.headers);
+router.post('/process-csv', async (req, res) => {
+  try {
+    await new Promise((resolve, reject) => {
+      upload(req, res, function(err) {
+        if (err) {
+          return reject(err);
+        }
+        resolve();
+      });
+    });
 
-  upload(req, res, async function(err) {
-    try {
-      console.log('Upload callback triggered');
-      if (err) {
-        console.error('Upload error:', err);
-        return res.status(400).json({
-          error: err.message,
-          details: err
-        });
-      }
-
-      if (!req.file) {
-        console.error('No file in request');
-        return res.status(400).json({
-          error: 'No file provided'
-        });
-      }
-
-      console.log('File received:', {
+    console.log('File upload:', {
+      file: req.file ? {
         fieldname: req.file.fieldname,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size
-      });
+      } : 'No file',
+      body: req.body
+    });
 
-      const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
-      console.log('Using date format:', dateFormat);
-
-      // Convert buffer to string and process CSV
-      const fileContent = req.file.buffer.toString('utf8');
-      console.log('File content preview:', fileContent.substring(0, 200));
-
-      const lines = fileContent.split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-
-      if (lines.length < 2) {
-        return res.status(400).json({
-          error: 'CSV file must contain headers and at least one data row'
-        });
-      }
-
-      // Get headers
-      const headers = lines[0].split(',').map(h => h.trim());
-      console.log('CSV Headers:', headers);
-
-      // Validate required headers
-      const requiredHeaders = ['transaction_number', 'transaction_type', 'amount', 'issue_date', 'due_date', 'status'];
-      for (const required of requiredHeaders) {
-        if (!headers.includes(required)) {
-          return res.status(400).json({
-            error: `Missing required header: ${required}`,
-            headers: headers
-          });
-        }
-      }
-
-      // Process data rows
-      const results = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        const values = line.split(',').map(v => v.trim());
-
-        if (values.length !== headers.length) {
-          return res.status(400).json({
-            error: `Row ${i + 1} has ${values.length} fields but expected ${headers.length}`,
-            row: line
-          });
-        }
-
-        // Create object from headers and values
-        const rowData = {};
-        headers.forEach((header, index) => {
-          rowData[header] = values[index];
-        });
-
-        try {
-          results.push({
-            transactionNumber: String(rowData.transaction_number),
-            type: String(rowData.transaction_type),
-            amount: cleanAmount(rowData.amount),
-            date: parseDateString(rowData.issue_date, dateFormat),
-            dueDate: parseDateString(rowData.due_date, dateFormat),
-            status: String(rowData.status),
-            reference: rowData.reference ? String(rowData.reference) : ''
-          });
-        } catch (error) {
-          return res.status(400).json({
-            error: `Error in row ${i + 1}: ${error.message}`,
-            row: rowData
-          });
-        }
-      }
-
-      console.log(`Successfully processed ${results.length} rows`);
-      res.json(results);
-
-    } catch (error) {
-      console.error('Processing error:', error);
-      res.status(500).json({
-        error: error.message,
-        details: error
+    if (!req.file) {
+      return res.status(400).json({
+        error: 'No file provided'
       });
     }
-  });
+
+    const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
+    
+    // Convert buffer to string
+    const fileContent = req.file.buffer.toString('utf8');
+    
+    // Split into lines and remove empty ones
+    const lines = fileContent.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    if (lines.length < 2) {
+      return res.status(400).json({
+        error: 'CSV file must contain headers and at least one data row'
+      });
+    }
+
+    // Get headers
+    const headers = lines[0].split(',').map(h => h.trim());
+    console.log('CSV Headers:', headers);
+
+    // Process data rows
+    const results = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      const values = line.split(',').map(v => v.trim());
+
+      // Create row data object
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = values[index] || '';
+      });
+
+      try {
+        results.push({
+          transactionNumber: String(rowData.transaction_number || '').trim(),
+          type: String(rowData.transaction_type || '').trim(),
+          amount: cleanAmount(rowData.amount),
+          date: parseDateString(rowData.issue_date, dateFormat),
+          dueDate: parseDateString(rowData.due_date, dateFormat),
+          status: String(rowData.status || '').trim(),
+          reference: rowData.reference ? String(rowData.reference).trim() : ''
+        });
+      } catch (error) {
+        return res.status(400).json({
+          error: `Error in row ${i + 1}: ${error.message}`,
+          row: rowData
+        });
+      }
+    }
+
+    console.log(`Successfully processed ${results.length} rows`);
+    return res.json(results);
+
+  } catch (error) {
+    console.error('Processing error:', error);
+    return res.status(500).json({
+      error: error.message || 'Internal server error',
+      details: error
+    });
+  }
 });
 
 // Helper function to clean amount values
