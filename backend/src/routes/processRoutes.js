@@ -14,28 +14,20 @@ import {
 const router = express.Router();
 
 // Configure multer with simple storage
-const storage = multer.memoryStorage();
 const upload = multer({ 
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-}).single('csvFile');
+}).single('file');
 
 // Process CSV file
 router.post('/process-csv', (req, res) => {
+  console.log('Processing request headers:', req.headers);
+
   upload(req, res, async function(err) {
     try {
-      console.log('Upload request received:', {
-        body: req.body,
-        file: req.file ? {
-          fieldname: req.file.fieldname,
-          originalname: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size
-        } : null
-      });
-
+      console.log('Upload callback triggered');
       if (err) {
         console.error('Upload error:', err);
         return res.status(400).json({
@@ -50,6 +42,13 @@ router.post('/process-csv', (req, res) => {
           error: 'No file provided'
         });
       }
+
+      console.log('File received:', {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      });
 
       const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
       console.log('Using date format:', dateFormat);
