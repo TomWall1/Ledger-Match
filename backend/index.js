@@ -13,6 +13,7 @@ const corsOptions = {
   origin: 'https://ledger-match.vercel.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'],
+  exposedHeaders: ['Content-Type'],
   credentials: true,
   maxAge: 86400 // Cache preflight requests for 24 hours
 };
@@ -27,6 +28,16 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Log all requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, {
+    headers: req.headers,
+    query: req.query,
+    body: req.body
+  });
+  next();
+});
+
 // Mount routes
 app.use('/auth', xeroRoutes);
 app.use('/', processRoutes);
@@ -34,16 +45,6 @@ app.use('/', processRoutes);
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({ status: 'API is running' });
-});
-
-// Test endpoint
-app.get('/test-cors', (req, res) => {
-  res.json({ 
-    message: 'CORS is working',
-    origin: req.headers.origin || 'No origin header',
-    method: req.method,
-    headers: req.headers
-  });
 });
 
 // Error handling middleware
