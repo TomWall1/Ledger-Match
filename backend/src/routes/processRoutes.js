@@ -13,8 +13,17 @@ import {
 const router = express.Router();
 
 // Configure multer with file size limits
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/')
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.fieldname + '-' + Date.now() + '.csv')
+  }
+});
+
 const upload = multer({ 
-  dest: 'uploads/',
+  storage: storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
@@ -31,105 +40,21 @@ router.use((req, res, next) => {
   next();
 });
 
-// Helper function to clean amount values
-const cleanAmount = (amountStr) => {
-  if (!amountStr) return 0;
-  try {
-    // Remove currency symbols and extra spaces
-    const cleaned = amountStr.toString()
-      .replace(/[$£€¥]/g, '')
-      .replace(/,/g, '')
-      .replace(/\s/g, '')
-      .trim();
-
-    const amount = parseFloat(cleaned);
-    if (isNaN(amount)) {
-      throw new ValidationError(`Invalid amount value: ${amountStr}`);
-    }
-    return amount;
-  } catch (error) {
-    throw new ValidationError(`Error processing amount value: ${amountStr}`);
-  }
-};
-
-// Helper function to clean and pad date components
-const padDateComponent = (component) => {
-  return component.toString().padStart(2, '0');
-};
-
-// Function to parse date strings
-const parseDateString = (dateStr, format) => {
-  if (!dateStr) {
-    throw new ValidationError('Date value is required');
-  }
-
-  const isValidDate = (date) => {
-    return date instanceof Date && !isNaN(date);
-  };
-
-  try {
-    console.log('Parsing date:', dateStr, 'with format:', format);
-    let day, month, year;
-    dateStr = dateStr.trim();
-
-    // Split by either slash or dash
-    const parts = dateStr.split(/[\/\-]/).map(part => part.trim());
-    
-    if (parts.length !== 3) {
-      throw new ValidationError(`Invalid date format: ${dateStr}`);
-    }
-
-    switch (format) {
-      case 'YYYY-MM-DD':
-        [year, month, day] = parts;
-        break;
-      case 'DD/MM/YYYY':
-        [day, month, year] = parts;
-        break;
-      case 'MM/DD/YYYY':
-        [month, day, year] = parts;
-        break;
-      case 'DD-MM-YYYY':
-        [day, month, year] = parts;
-        break;
-      case 'MM-DD-YYYY':
-        [month, day, year] = parts;
-        break;
-      default:
-        throw new ValidationError(`Unsupported date format: ${format}`);
-    }
-
-    // Convert to numbers and pad with zeros
-    day = padDateComponent(parseInt(day, 10));
-    month = padDateComponent(parseInt(month, 10));
-    year = parseInt(year, 10);
-
-    if (isNaN(day) || isNaN(month) || isNaN(year)) {
-      throw new ValidationError(`Invalid date components: ${dateStr}`);
-    }
-
-    const date = new Date(year, month - 1, parseInt(day, 10));
-    if (!isValidDate(date)) {
-      throw new ValidationError(`Invalid date: ${dateStr}`);
-    }
-
-    return `${year}-${month}-${day}`;
-  } catch (error) {
-    throw new ValidationError(`Error parsing date ${dateStr} with format ${format}: ${error.message}`);
-  }
-};
+// ... (other helper functions remain the same)
 
 // Process single CSV file
-router.post('/process-csv', upload.single('file'), async (req, res, next) => {
+router.post('/process-csv', upload.single('upload'), async (req, res, next) => {
   let filePath = null;
   
   try {
     // Log request details
     console.log('Received CSV upload request:', {
       file: req.file ? {
+        fieldname: req.file.fieldname,
         originalname: req.file.originalname,
         size: req.file.size,
-        mimetype: req.file.mimetype
+        mimetype: req.file.mimetype,
+        path: req.file.path
       } : 'No file',
       body: req.body
     });
@@ -150,6 +75,9 @@ router.post('/process-csv', upload.single('file'), async (req, res, next) => {
     // Read and parse the CSV file
     const results = [];
     let rowNum = 0;
+
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    console.log('File content preview:', fileContent.substring(0, 200));
 
     await new Promise((resolve, reject) => {
       fs.createReadStream(filePath)
