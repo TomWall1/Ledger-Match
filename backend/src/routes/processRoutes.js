@@ -13,14 +13,11 @@ import {
 
 const router = express.Router();
 
-const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  },
+// Configure multer with simple storage
+const upload = multer({
+  storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
-    console.log('Multer processing file:', {
+    console.log('Received file:', {
       fieldname: file.fieldname,
       originalname: file.originalname,
       mimetype: file.mimetype
@@ -29,53 +26,74 @@ const upload = multer({
       return cb(new Error('Only CSV files are allowed'));
     }
     cb(null, true);
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-}).any(); // Accept any files, we'll validate them later
+}).fields([
+  { name: 'csvFile', maxCount: 1 }
+]);
 
-// Process single CSV file
-router.post('/process-csv', async (req, res, next) => {
-  upload(req, res, async function(err) {
+// Process CSV file
+router.post('/process-csv', (req, res) => {
+  upload(req, res, function(err) {
     try {
-      console.log('Request headers:', req.headers);
-      console.log('Request files:', req.files);
-      console.log('Request body:', req.body);
+      console.log('Request received:', {
+        body: req.body,
+        files: req.files,
+        headers: req.headers
+      });
 
-      if (err) {
+      if (err instanceof multer.MulterError) {
         console.error('Multer error:', err);
-        throw new Error(err.message);
+        return res.status(400).json({
+          error: `Upload error: ${err.message}`,
+          code: err.code
+        });
+      } else if (err) {
+        console.error('Other error:', err);
+        return res.status(500).json({
+          error: `Server error: ${err.message}`
+        });
       }
 
-      if (!req.files || req.files.length === 0) {
-        throw new Error('No file provided');
+      if (!req.files || !req.files.csvFile || !req.files.csvFile[0]) {
+        return res.status(400).json({
+          error: 'No CSV file provided'
+        });
       }
 
-      const file = req.files[0]; // Get the first file
+      const file = req.files.csvFile[0];
       const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
 
-      // Convert buffer to string and parse CSV
+      console.log('Processing file:', {
+        originalname: file.originalname,
+        size: file.size,
+        dateFormat: dateFormat
+      });
+
+      // Parse CSV content
       const fileContent = file.buffer.toString('utf8');
-      console.log('File content preview:', fileContent.substring(0, 200));
+      const lines = fileContent.split('\n').map(line => line.trim()).filter(line => line);
 
-      const rows = fileContent.split('\n')
-        .map(row => row.trim())
-        .filter(row => row.length > 0);
-
-      // Get headers and validate
-      const headers = rows[0].split(',').map(h => h.trim());
-      const requiredHeaders = ['transaction_number', 'transaction_type', 'amount', 'issue_date', 'due_date', 'status'];
-      for (const required of requiredHeaders) {
-        if (!headers.includes(required)) {
-          throw new Error(`Missing required header: ${required}`);
-        }
+      if (lines.length < 2) {
+        return res.status(400).json({
+          error: 'CSV file must contain headers and at least one data row'
+        });
       }
 
-      // Process data rows
+      // Process CSV data
+      const headers = lines[0].split(',').map(h => h.trim());
       const results = [];
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = lines[i];
         const values = row.split(',').map(v => v.trim());
+
         if (values.length !== headers.length) {
-          throw new Error(`Row ${i + 1} has incorrect number of fields`);
+          return res.status(400).json({
+            error: `Row ${i + 1} has incorrect number of fields`
+          });
         }
 
         const rowData = {};
@@ -84,7 +102,7 @@ router.post('/process-csv', async (req, res, next) => {
         });
 
         try {
-          const cleanedData = {
+          results.push({
             transactionNumber: String(rowData.transaction_number),
             type: String(rowData.transaction_type),
             amount: cleanAmount(rowData.amount),
@@ -92,21 +110,21 @@ router.post('/process-csv', async (req, res, next) => {
             dueDate: parseDateString(rowData.due_date, dateFormat),
             status: String(rowData.status),
             reference: rowData.reference ? String(rowData.reference) : ''
-          };
-          results.push(cleanedData);
+          });
         } catch (error) {
-          throw new Error(`Error in row ${i + 1}: ${error.message}`);
+          return res.status(400).json({
+            error: `Error in row ${i + 1}: ${error.message}`
+          });
         }
       }
 
       console.log(`Successfully processed ${results.length} rows`);
       res.json(results);
+
     } catch (error) {
-      console.error('Processing error:', error);
+      console.error('Error:', error);
       res.status(500).json({
-        error: error.message,
-        path: req.path,
-        timestamp: new Date().toISOString()
+        error: error.message
       });
     }
   });
