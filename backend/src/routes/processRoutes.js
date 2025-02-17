@@ -13,106 +13,96 @@ import {
 
 const router = express.Router();
 
-// Configure multer with file size limits
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/')
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, file.fieldname + '-' + uniqueSuffix + '.csv')
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  console.log('Received file:', file);
-  if (file.mimetype !== 'text/csv' && !file.originalname.toLowerCase().endsWith('.csv')) {
-    return cb(new Error('Only CSV files are allowed'), false);
-  }
-  cb(null, true);
-};
-
-const upload = multer({ 
-  storage: storage,
-  fileFilter: fileFilter,
+// Configure multer with basic settings
+const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-}).single('upload'); // 'upload' is the field name we expect
+}).single('csvFile'); // Change field name to 'csvFile'
 
 // Process single CSV file
-router.post('/process-csv', async (req, res, next) => {
-  console.log('Received request headers:', req.headers);
-  console.log('Received request body:', req.body);
-
-  upload(req, res, async function(err) {
-    let filePath = null;
-
+router.post('/process-csv', (req, res) => {
+  upload(req, res, async (err) => {
     try {
-      if (err instanceof multer.MulterError) {
+      if (err) {
         console.error('Multer error:', err);
-        throw new Error(`File upload error: ${err.message}`);
-      } else if (err) {
-        console.error('Unknown error:', err);
-        throw new Error(`Unknown error: ${err.message}`);
+        return res.status(400).json({
+          error: err.message,
+          details: err
+        });
       }
-
-      // Log what we received
-      console.log('File upload details:', {
-        file: req.file,
-        body: req.body
-      });
 
       if (!req.file) {
-        throw new ValidationError('No file provided');
+        return res.status(400).json({
+          error: 'No file provided'
+        });
       }
 
-      filePath = req.file.path;
-      const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
-      
-      // Read file content for logging
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      console.log('File content preview:', fileContent.substring(0, 200));
-
-      // Parse CSV
-      const results = [];
-      await new Promise((resolve, reject) => {
-        fs.createReadStream(filePath)
-          .pipe(csv())
-          .on('data', (row) => {
-            try {
-              // Convert row data
-              const cleanedData = {
-                transactionNumber: String(row.transaction_number || '').trim(),
-                type: String(row.transaction_type || '').trim(),
-                amount: cleanAmount(row.amount),
-                date: parseDateString(row.issue_date, dateFormat),
-                dueDate: parseDateString(row.due_date, dateFormat),
-                status: String(row.status || '').trim(),
-                reference: row.reference ? String(row.reference).trim() : ''
-              };
-              results.push(cleanedData);
-            } catch (error) {
-              reject(error);
-            }
-          })
-          .on('end', () => resolve(results))
-          .on('error', reject);
+      console.log('Received file:', {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
       });
 
-      res.json(results);
-    } catch (error) {
-      console.error('Error processing file:', error);
-      next(error);
-    } finally {
-      // Clean up uploaded file
-      if (filePath && fs.existsSync(filePath)) {
+      const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
+      const results = [];
+
+      // Convert buffer to string and process CSV
+      const fileContent = req.file.buffer.toString('utf8');
+      const rows = fileContent.split('\n');
+      
+      // Skip header row
+      const dataRows = rows.slice(1);
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        if (!row.trim()) continue; // Skip empty rows
+
+        const [transaction_number, transaction_type, amount, issue_date, due_date, status, reference] = 
+          row.split(',').map(field => field.trim());
+
         try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.error('Error cleaning up file:', e);
+          if (!transaction_number || !transaction_type || !amount || !issue_date || !due_date || !status) {
+            throw new Error(`Missing required fields in row ${i + 2}`);
+          }
+
+          // Process the data
+          const cleanedData = {
+            transactionNumber: transaction_number,
+            type: transaction_type,
+            amount: cleanAmount(amount),
+            date: parseDateString(issue_date, dateFormat),
+            dueDate: parseDateString(due_date, dateFormat),
+            status: status,
+            reference: reference || ''
+          };
+
+          results.push(cleanedData);
+        } catch (error) {
+          console.error(`Error processing row ${i + 2}:`, error);
+          return res.status(400).json({
+            error: `Error in row ${i + 2}: ${error.message}`,
+            row: row
+          });
         }
       }
+
+      if (results.length === 0) {
+        return res.status(400).json({
+          error: 'No valid data found in CSV file'
+        });
+      }
+
+      res.json(results);
+
+    } catch (error) {
+      console.error('Error processing file:', error);
+      res.status(500).json({
+        error: error.message,
+        details: error
+      });
     }
   });
 });
@@ -128,18 +118,18 @@ const cleanAmount = (amountStr) => {
       .trim();
     const amount = parseFloat(cleaned);
     if (isNaN(amount)) {
-      throw new ValidationError(`Invalid amount value: ${amountStr}`);
+      throw new Error(`Invalid amount value: ${amountStr}`);
     }
     return amount;
   } catch (error) {
-    throw new ValidationError(`Error processing amount value: ${amountStr}`);
+    throw new Error(`Error processing amount value: ${amountStr}`);
   }
 };
 
 // Helper function to parse date strings
 const parseDateString = (dateStr, format) => {
   if (!dateStr) {
-    throw new ValidationError('Date value is required');
+    throw new Error('Date value is required');
   }
 
   try {
@@ -161,19 +151,19 @@ const parseDateString = (dateStr, format) => {
     year = parseInt(year, 10);
 
     if (isNaN(day) || isNaN(month) || isNaN(year)) {
-      throw new ValidationError(`Invalid date components: ${dateStr}`);
+      throw new Error(`Invalid date components: ${dateStr}`);
     }
 
     // Validate date
     const date = new Date(year, month - 1, day);
     if (isNaN(date.getTime())) {
-      throw new ValidationError(`Invalid date: ${dateStr}`);
+      throw new Error(`Invalid date: ${dateStr}`);
     }
 
     // Return standardized format
     return date.toISOString().split('T')[0];
   } catch (error) {
-    throw new ValidationError(`Error parsing date ${dateStr}: ${error.message}`);
+    throw new Error(`Error parsing date ${dateStr}: ${error.message}`);
   }
 };
 
