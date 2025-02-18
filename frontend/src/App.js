@@ -128,7 +128,7 @@ function MainApp() {
       // Process company 1 data (AR)
       if (files.company1.type === 'csv') {
         const formData1 = new FormData();
-        formData1.append('file', files.company1.file, files.company1.file.name);
+        formData1.append('file', files.company1.file);
         formData1.append('dateFormat', dateFormats.company1);
         
         console.log('Sending AR file:', {
@@ -155,7 +155,7 @@ function MainApp() {
 
       // Process company 2 data (AP)
       const formData2 = new FormData();
-      formData2.append('file', files.company2.file, files.company2.file.name);
+      formData2.append('file', files.company2.file);
       formData2.append('dateFormat', dateFormats.company2);
 
       console.log('Sending AP file:', {
@@ -231,7 +231,7 @@ function MainApp() {
             <div className="border rounded-lg p-6 bg-white">
               <h2 className="text-lg font-semibold mb-4">Accounts Receivable Ledger</h2>
               <ARSourceSelector 
-                onFileSelected={(data) => handleFileUpload('company1', { type: 'csv', file: data })}
+                onFileSelected={(data) => handleFileUpload('company1', data)}
                 onDateFormatChange={(format) => handleDateFormatChange('company1', format)}
                 selectedDateFormat={dateFormats.company1}
                 file={files.company1}
