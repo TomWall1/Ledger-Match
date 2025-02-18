@@ -14,51 +14,49 @@ import {
 const router = express.Router();
 
 // Configure multer
-const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage: storage,
+const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-}).fields([
-  { name: 'file', maxCount: 1 },
-  { name: 'dateFormat', maxCount: 1 }
-]);
+}).single('file'); // Match exactly what frontend is sending
 
 // Process CSV file
-router.post('/process-csv', function(req, res) {
-  upload(req, res, function(err) {
-    console.log('Upload callback received:', {
-      files: req.files,
-      body: req.body,
-      error: err
-    });
-
-    if (err) {
-      console.error('Upload error:', err);
-      return res.status(400).json({
-        error: err.message,
-        details: err
-      });
-    }
-
-    if (!req.files || !req.files.file || !req.files.file[0]) {
-      return res.status(400).json({
-        error: 'No file uploaded'
-      });
-    }
-
+router.post('/process-csv', (req, res) => {
+  upload(req, res, async function(err) {
     try {
+      if (err) {
+        console.error('Upload error:', err);
+        return res.status(400).json({
+          error: err.message,
+          details: err
+        });
+      }
+
+      console.log('Upload callback received:', {
+        file: req.file,
+        body: req.body
+      });
+
+      if (!req.file) {
+        return res.status(400).json({
+          error: 'No file uploaded'
+        });
+      }
+
       // Get the uploaded file
-      const file = req.files.file[0];
+      const file = req.file;
       console.log('Processing file:', {
         originalname: file.originalname,
         mimetype: file.mimetype,
         size: file.size
       });
 
+      const dateFormat = req.body.dateFormat || 'YYYY-MM-DD';
+      
       // Convert buffer to string
       const fileContent = file.buffer.toString('utf8');
+      console.log('File content preview:', fileContent.substring(0, 200));
       
       // Split into lines and remove empty ones
       const lines = fileContent.split('\n')
@@ -92,8 +90,8 @@ router.post('/process-csv', function(req, res) {
             transactionNumber: String(rowData.transaction_number || '').trim(),
             type: String(rowData.transaction_type || '').trim(),
             amount: cleanAmount(rowData.amount),
-            date: parseDateString(rowData.issue_date, req.body.dateFormat || 'YYYY-MM-DD'),
-            dueDate: parseDateString(rowData.due_date, req.body.dateFormat || 'YYYY-MM-DD'),
+            date: parseDateString(rowData.issue_date, dateFormat),
+            dueDate: parseDateString(rowData.due_date, dateFormat),
             status: String(rowData.status || '').trim(),
             reference: rowData.reference ? String(rowData.reference).trim() : ''
           });
