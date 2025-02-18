@@ -27,7 +27,7 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-}).any();
+}).single('file'); // Changed from .any() to .single('file')
 
 // Process CSV file
 router.post('/process-csv', (req, res) => {
@@ -47,18 +47,18 @@ router.post('/process-csv', (req, res) => {
       }
 
       console.log('Upload callback received:', {
-        files: req.files,
+        file: req.file,
         body: req.body
       });
 
-      if (!req.files || req.files.length === 0) {
+      if (!req.file) {
         return res.status(400).json({
           error: 'No file uploaded'
         });
       }
 
-      // Get the first file
-      const file = req.files[0];
+      // Get the uploaded file
+      const file = req.file;
       console.log('Processing file:', {
         originalname: file.originalname,
         mimetype: file.mimetype,
