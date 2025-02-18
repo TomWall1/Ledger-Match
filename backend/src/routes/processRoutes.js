@@ -27,93 +27,107 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-});
+}).single('csvFile');
 
 // Process CSV file
-router.post('/process-csv', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'dateFormat', maxCount: 1 }]), (req, res) => {
+router.post('/process-csv', (req, res) => {
   console.log('Request received:', {
     headers: req.headers,
-    contentType: req.headers['content-type'],
-    files: req.files,
-    body: req.body
+    contentType: req.headers['content-type']
   });
 
-  try {
-    if (!req.files || !req.files.file || req.files.file.length === 0) {
-      return res.status(400).json({
-        error: 'No file uploaded'
-      });
-    }
-
-    // Get the first file
-    const file = req.files.file[0];
-    console.log('Processing file:', {
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size
-    });
-
-    const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
-    
-    // Convert buffer to string
-    const fileContent = file.buffer.toString('utf8');
-    console.log('File content preview:', fileContent.substring(0, 200));
-    
-    // Split into lines and remove empty ones
-    const lines = fileContent.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-
-    if (lines.length < 2) {
-      return res.status(400).json({
-        error: 'CSV file must contain headers and at least one data row'
-      });
-    }
-
-    // Get headers
-    const headers = lines[0].split(',').map(h => h.trim());
-    console.log('CSV Headers:', headers);
-
-    // Process data rows
-    const results = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      const values = line.split(',').map(v => v.trim());
-
-      // Create row data object
-      const rowData = {};
-      headers.forEach((header, index) => {
-        rowData[header] = values[index] || '';
+  upload(req, res, async function(err) {
+    try {
+      console.log('Upload callback received:', {
+        body: req.body,
+        file: req.file,
+        error: err
       });
 
-      try {
-        results.push({
-          transactionNumber: String(rowData.transaction_number || '').trim(),
-          type: String(rowData.transaction_type || '').trim(),
-          amount: cleanAmount(rowData.amount),
-          date: parseDateString(rowData.issue_date, dateFormat),
-          dueDate: parseDateString(rowData.due_date, dateFormat),
-          status: String(rowData.status || '').trim(),
-          reference: rowData.reference ? String(rowData.reference).trim() : ''
-        });
-      } catch (error) {
+      if (err) {
+        console.error('Upload error:', err);
         return res.status(400).json({
-          error: `Error in row ${i + 1}: ${error.message}`,
-          row: rowData
+          error: err.message,
+          details: err
         });
       }
+
+      if (!req.file) {
+        return res.status(400).json({
+          error: 'No file uploaded'
+        });
+      }
+
+      // Get the uploaded file
+      const file = req.file;
+      console.log('Processing file:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+      });
+
+      const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
+      
+      // Convert buffer to string
+      const fileContent = file.buffer.toString('utf8');
+      console.log('File content preview:', fileContent.substring(0, 200));
+      
+      // Split into lines and remove empty ones
+      const lines = fileContent.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      if (lines.length < 2) {
+        return res.status(400).json({
+          error: 'CSV file must contain headers and at least one data row'
+        });
+      }
+
+      // Get headers
+      const headers = lines[0].split(',').map(h => h.trim());
+      console.log('CSV Headers:', headers);
+
+      // Process data rows
+      const results = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const values = line.split(',').map(v => v.trim());
+
+        // Create row data object
+        const rowData = {};
+        headers.forEach((header, index) => {
+          rowData[header] = values[index] || '';
+        });
+
+        try {
+          results.push({
+            transactionNumber: String(rowData.transaction_number || '').trim(),
+            type: String(rowData.transaction_type || '').trim(),
+            amount: cleanAmount(rowData.amount),
+            date: parseDateString(rowData.issue_date, dateFormat),
+            dueDate: parseDateString(rowData.due_date, dateFormat),
+            status: String(rowData.status || '').trim(),
+            reference: rowData.reference ? String(rowData.reference).trim() : ''
+          });
+        } catch (error) {
+          return res.status(400).json({
+            error: `Error in row ${i + 1}: ${error.message}`,
+            row: rowData
+          });
+        }
+      }
+
+      console.log(`Successfully processed ${results.length} rows`);
+      return res.json(results);
+
+    } catch (error) {
+      console.error('Processing error:', error);
+      return res.status(500).json({
+        error: error.message || 'Internal server error',
+        details: error
+      });
     }
-
-    console.log(`Successfully processed ${results.length} rows`);
-    return res.json(results);
-
-  } catch (error) {
-    console.error('Processing error:', error);
-    return res.status(500).json({
-      error: error.message || 'Internal server error',
-      details: error
-    });
-  }
+  });
 });
 
 // Helper function to clean amount values
