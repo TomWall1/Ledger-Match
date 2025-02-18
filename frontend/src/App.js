@@ -128,13 +128,15 @@ function MainApp() {
       // Process company 1 data (AR)
       if (files.company1.type === 'csv') {
         const formData1 = new FormData();
-        formData1.append('file', files.company1.file);
+        // Add the file to the form data
+        const file1 = files.company1.file;
+        formData1.append('file', file1);
         formData1.append('dateFormat', dateFormats.company1);
-        
+
         console.log('Sending AR file:', {
-          name: files.company1.file.name,
-          size: files.company1.file.size,
-          type: files.company1.file.type
+          name: file1.name,
+          size: file1.size,
+          type: file1.type
         });
 
         const response1 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
@@ -143,9 +145,14 @@ function MainApp() {
         });
 
         if (!response1.ok) {
-          const errorData = await response1.text();
+          let errorData;
+          try {
+            errorData = await response1.json();
+          } catch (e) {
+            errorData = await response1.text();
+          }
           console.error('Server error:', errorData);
-          throw new Error(`Failed to process first CSV file: ${errorData}`);
+          throw new Error(`Failed to process first CSV file: ${JSON.stringify(errorData)}`);
         }
 
         company1Data = await response1.json();
@@ -155,13 +162,14 @@ function MainApp() {
 
       // Process company 2 data (AP)
       const formData2 = new FormData();
-      formData2.append('file', files.company2.file);
+      const file2 = files.company2.file;
+      formData2.append('file', file2);
       formData2.append('dateFormat', dateFormats.company2);
 
       console.log('Sending AP file:', {
-        name: files.company2.file.name,
-        size: files.company2.file.size,
-        type: files.company2.file.type
+        name: file2.name,
+        size: file2.size,
+        type: file2.type
       });
 
       const response2 = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
@@ -170,9 +178,14 @@ function MainApp() {
       });
 
       if (!response2.ok) {
-        const errorData = await response2.text();
+        let errorData;
+        try {
+          errorData = await response2.json();
+        } catch (e) {
+          errorData = await response2.text();
+        }
         console.error('Server error:', errorData);
-        throw new Error(`Failed to process second CSV file: ${errorData}`);
+        throw new Error(`Failed to process second CSV file: ${JSON.stringify(errorData)}`);
       }
 
       company2Data = await response2.json();
@@ -190,9 +203,14 @@ function MainApp() {
       });
 
       if (!matchResults.ok) {
-        const errorData = await matchResults.text();
+        let errorData;
+        try {
+          errorData = await matchResults.json();
+        } catch (e) {
+          errorData = await matchResults.text();
+        }
         console.error('Server error:', errorData);
-        throw new Error(`Failed to match data: ${errorData}`);
+        throw new Error(`Failed to match data: ${JSON.stringify(errorData)}`);
       }
 
       const results = await matchResults.json();
