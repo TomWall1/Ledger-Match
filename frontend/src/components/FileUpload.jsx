@@ -6,7 +6,7 @@ export function FileUpload({ onFileSelected, accept = '.csv', label = 'Upload CS
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      console.log('Selected file:', {
+      console.log('Selected file in FileUpload:', {
         name: file.name,
         type: file.type,
         size: file.size
