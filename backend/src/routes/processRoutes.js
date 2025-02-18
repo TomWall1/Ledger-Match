@@ -13,103 +13,120 @@ import {
 
 const router = express.Router();
 
-// Basic multer configuration
+// Configure multer
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
+  fileFilter: (req, file, cb) => {
+    console.log('Multer processing file:', file);
+    if (!file.originalname.toLowerCase().endsWith('.csv')) {
+      return cb(new Error('Only CSV files are allowed'));
+    }
+    cb(null, true);
+  },
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
-}).single('file');
+}).any();
 
 // Process CSV file
-router.post('/process-csv', async (req, res) => {
-  try {
-    await new Promise((resolve, reject) => {
-      upload(req, res, function(err) {
-        if (err) {
-          return reject(err);
-        }
-        resolve();
-      });
-    });
+router.post('/process-csv', (req, res) => {
+  console.log('Request received:', {
+    headers: req.headers,
+    contentType: req.headers['content-type']
+  });
 
-    console.log('File upload:', {
-      file: req.file ? {
-        fieldname: req.file.fieldname,
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      } : 'No file',
-      body: req.body
-    });
-
-    if (!req.file) {
-      return res.status(400).json({
-        error: 'No file provided'
-      });
-    }
-
-    const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
-    
-    // Convert buffer to string
-    const fileContent = req.file.buffer.toString('utf8');
-    
-    // Split into lines and remove empty ones
-    const lines = fileContent.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-
-    if (lines.length < 2) {
-      return res.status(400).json({
-        error: 'CSV file must contain headers and at least one data row'
-      });
-    }
-
-    // Get headers
-    const headers = lines[0].split(',').map(h => h.trim());
-    console.log('CSV Headers:', headers);
-
-    // Process data rows
-    const results = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      const values = line.split(',').map(v => v.trim());
-
-      // Create row data object
-      const rowData = {};
-      headers.forEach((header, index) => {
-        rowData[header] = values[index] || '';
-      });
-
-      try {
-        results.push({
-          transactionNumber: String(rowData.transaction_number || '').trim(),
-          type: String(rowData.transaction_type || '').trim(),
-          amount: cleanAmount(rowData.amount),
-          date: parseDateString(rowData.issue_date, dateFormat),
-          dueDate: parseDateString(rowData.due_date, dateFormat),
-          status: String(rowData.status || '').trim(),
-          reference: rowData.reference ? String(rowData.reference).trim() : ''
-        });
-      } catch (error) {
+  upload(req, res, async function(err) {
+    try {
+      if (err) {
+        console.error('Upload error:', err);
         return res.status(400).json({
-          error: `Error in row ${i + 1}: ${error.message}`,
-          row: rowData
+          error: err.message,
+          details: err
         });
       }
+
+      console.log('Upload callback received:', {
+        files: req.files,
+        body: req.body
+      });
+
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          error: 'No file uploaded'
+        });
+      }
+
+      // Get the first file
+      const file = req.files[0];
+      console.log('Processing file:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+      });
+
+      const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
+      
+      // Convert buffer to string
+      const fileContent = file.buffer.toString('utf8');
+      console.log('File content preview:', fileContent.substring(0, 200));
+      
+      // Split into lines and remove empty ones
+      const lines = fileContent.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      if (lines.length < 2) {
+        return res.status(400).json({
+          error: 'CSV file must contain headers and at least one data row'
+        });
+      }
+
+      // Get headers
+      const headers = lines[0].split(',').map(h => h.trim());
+      console.log('CSV Headers:', headers);
+
+      // Process data rows
+      const results = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        const values = line.split(',').map(v => v.trim());
+
+        // Create row data object
+        const rowData = {};
+        headers.forEach((header, index) => {
+          rowData[header] = values[index] || '';
+        });
+
+        try {
+          results.push({
+            transactionNumber: String(rowData.transaction_number || '').trim(),
+            type: String(rowData.transaction_type || '').trim(),
+            amount: cleanAmount(rowData.amount),
+            date: parseDateString(rowData.issue_date, dateFormat),
+            dueDate: parseDateString(rowData.due_date, dateFormat),
+            status: String(rowData.status || '').trim(),
+            reference: rowData.reference ? String(rowData.reference).trim() : ''
+          });
+        } catch (error) {
+          return res.status(400).json({
+            error: `Error in row ${i + 1}: ${error.message}`,
+            row: rowData
+          });
+        }
+      }
+
+      console.log(`Successfully processed ${results.length} rows`);
+      return res.json(results);
+
+    } catch (error) {
+      console.error('Processing error:', error);
+      return res.status(500).json({
+        error: error.message || 'Internal server error',
+        details: error
+      });
     }
-
-    console.log(`Successfully processed ${results.length} rows`);
-    return res.json(results);
-
-  } catch (error) {
-    console.error('Processing error:', error);
-    return res.status(500).json({
-      error: error.message || 'Internal server error',
-      details: error
-    });
-  }
+  });
 });
 
 // Helper function to clean amount values
