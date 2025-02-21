@@ -25,15 +25,15 @@ router.post('/process-csv', (req, res) => {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      const dateFormat = req.body.dateFormat || 'YYYY-MM-DD';
+      const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
       const fileContent = req.file.buffer.toString('utf8');
 
-      // Use Papaparse for robust CSV parsing
+      // Use Papaparse with configuration for space-delimited files
       const parseResult = Papa.parse(fileContent, {
-        header: true,
+        delimiter: ' ',     // Use space as delimiter
         skipEmptyLines: true,
-        dynamicTyping: false,
-        transformHeader: (header) => header.trim(),
+        transform: (value) => value.trim(), // Trim each value
+        transformHeader: (header) => header.trim().toLowerCase(), // Normalize headers
       });
 
       if (parseResult.errors.length > 0) {
@@ -44,9 +44,26 @@ router.post('/process-csv', (req, res) => {
         });
       }
 
+      // Filter out empty rows and columns
+      const data = parseResult.data.filter(row => 
+        Object.values(row).some(val => val && val.trim())
+      ).map(row => {
+        const cleanRow = {};
+        Object.entries(row).forEach(([key, value]) => {
+          if (value && value.trim()) {
+            cleanRow[key] = value.trim();
+          }
+        });
+        return cleanRow;
+      });
+
+      console.log('First parsed row:', data[0]);
+
       const results = [];
-      for (const row of parseResult.data) {
+      for (const row of data) {
         try {
+          if (!row.transaction_number) continue; // Skip rows without transaction number
+
           results.push({
             transactionNumber: String(row.transaction_number || '').trim(),
             type: String(row.transaction_type || '').trim(),
@@ -62,7 +79,7 @@ router.post('/process-csv', (req, res) => {
             row: row
           });
           return res.status(400).json({
-            error: `Error in row ${parseResult.data.indexOf(row) + 1}: ${error.message}`,
+            error: `Error in row ${data.indexOf(row) + 1}: ${error.message}`,
             row: row
           });
         }
@@ -74,11 +91,84 @@ router.post('/process-csv', (req, res) => {
     } catch (error) {
       console.error('Processing error:', error);
       return res.status(500).json({
-        error: error.message || 'Internal server error'
+        error: error.message || 'Internal server error',
+        details: error.stack
       });
     }
   });
 });
+
+// Helper function to clean amount values
+const cleanAmount = (amountStr) => {
+  if (!amountStr) return 0;
+  try {
+    // Handle negative amounts with dollar signs
+    const isNegative = amountStr.startsWith('-');
+    // Remove negative sign, dollar sign, commas, and spaces
+    let cleaned = amountStr
+      .replace(/^-/, '')           // Remove leading minus
+      .replace(/[$,\s]/g, '')      // Remove dollar sign, commas, and spaces
+      .trim();
+
+    const amount = parseFloat(cleaned);
+    if (isNaN(amount)) {
+      throw new Error(`Invalid amount value: ${amountStr}`);
+    }
+    return isNegative ? -amount : amount;
+  } catch (error) {
+    throw new Error(`Error processing amount value: ${amountStr}`);
+  }
+};
+
+// Helper function to parse date strings
+const parseDateString = (dateStr, format) => {
+  if (!dateStr) {
+    throw new Error('Date value is required');
+  }
+
+  try {
+    let day, month, year;
+    const cleanDateStr = dateStr.toString().trim();
+    const parts = cleanDateStr.split(/[\/\-]/).map(part => part.trim());
+
+    if (parts.length !== 3) {
+      throw new Error(`Invalid date format: ${dateStr}`);
+    }
+
+    switch (format) {
+      case 'DD/MM/YYYY':
+        [day, month, year] = parts;
+        break;
+      default:
+        [year, month, day] = parts;
+    }
+
+    // Ensure values are numbers
+    day = parseInt(day, 10);
+    month = parseInt(month, 10);
+    year = parseInt(year, 10);
+
+    if (isNaN(day) || isNaN(month) || isNaN(year)) {
+      throw new Error(`Invalid date components: ${dateStr}`);
+    }
+
+    // Validate date range
+    if (day < 1 || day > 31 || month < 1 || month > 12) {
+      throw new Error(`Invalid date values: ${dateStr}`);
+    }
+
+    // Construct and validate date
+    const date = new Date(year, month - 1, day);
+    if (isNaN(date.getTime())) {
+      throw new Error(`Invalid date: ${dateStr}`);
+    }
+
+    // Return standardized format
+    return date.toISOString().split('T')[0];
+  } catch (error) {
+    throw new Error(`Error parsing date ${dateStr}: ${error.message}`);
+  }
+};
 
 // Match data endpoint
 router.post('/match-data', express.json(), async (req, res) => {
@@ -157,68 +247,5 @@ router.post('/match-data', express.json(), async (req, res) => {
     });
   }
 });
-
-// Helper function to clean amount values
-const cleanAmount = (amountStr) => {
-  if (!amountStr) return 0;
-  try {
-    // Remove any quotes first
-    let cleaned = amountStr.toString().replace(/["']/g, '');
-    // Then remove currency symbols and spaces
-    cleaned = cleaned
-      .replace(/[$£€¥]/g, '')
-      .replace(/,/g, '')
-      .replace(/\s/g, '')
-      .trim();
-    const amount = parseFloat(cleaned);
-    if (isNaN(amount)) {
-      throw new Error(`Invalid amount value: ${amountStr}`);
-    }
-    return amount;
-  } catch (error) {
-    throw new Error(`Error processing amount value: ${amountStr}`);
-  }
-};
-
-// Helper function to parse date strings
-const parseDateString = (dateStr, format) => {
-  if (!dateStr) {
-    throw new Error('Date value is required');
-  }
-
-  try {
-    let day, month, year;
-    dateStr = dateStr.toString().trim();
-    const parts = dateStr.split(/[\/\-]/).map(part => part.trim());
-
-    switch (format) {
-      case 'DD/MM/YYYY':
-        [day, month, year] = parts;
-        break;
-      default:
-        [year, month, day] = parts;
-    }
-
-    // Ensure values are numbers
-    day = parseInt(day, 10);
-    month = parseInt(month, 10);
-    year = parseInt(year, 10);
-
-    if (isNaN(day) || isNaN(month) || isNaN(year)) {
-      throw new Error(`Invalid date components: ${dateStr}`);
-    }
-
-    // Validate date
-    const date = new Date(year, month - 1, day);
-    if (isNaN(date.getTime())) {
-      throw new Error(`Invalid date: ${dateStr}`);
-    }
-
-    // Return standardized format
-    return date.toISOString().split('T')[0];
-  } catch (error) {
-    throw new Error(`Error parsing date ${dateStr}: ${error.message}`);
-  }
-};
 
 export default router;
