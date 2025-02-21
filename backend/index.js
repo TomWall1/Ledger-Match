@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import xeroRoutes from './src/routes/xeroAuth.js';
 import processRoutes from './src/routes/processRoutes.js';
+import testRoutes from './src/routes/test.js';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use((req, res, next) => {
 // Mount routes
 app.use('/auth', xeroRoutes);
 app.use('/', processRoutes);
+app.use('/test', testRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -49,11 +51,19 @@ app.get('/', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
+  console.error('Global error handler:', {
+    error: err,
+    message: err.message,
+    code: err.code,
+    field: err.field,
+    storageErrors: err.storageErrors,
+    stack: err.stack
+  });
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
     path: req.path,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    details: JSON.stringify(err, Object.getOwnPropertyNames(err))
   });
 });
 
