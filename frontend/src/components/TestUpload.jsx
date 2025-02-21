@@ -15,10 +15,14 @@ export function TestUpload() {
         dateFormat: formData.get('dateFormat')
       });
 
-      const response = await fetch('https://ledger-match-backend.onrender.com/test/test-upload', {
+      const response = await fetch('https://ledger-match-backend.onrender.com/test/upload', {
         method: 'POST',
         body: formData
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
       setResult(data);
@@ -36,8 +40,8 @@ export function TestUpload() {
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block mb-2">File:</label>
-          <input type="file" name="file" className="block" />
+          <label className="block mb-2">CSV File:</label>
+          <input type="file" name="file" accept=".csv" className="block" />
         </div>
         
         <div>
@@ -45,8 +49,8 @@ export function TestUpload() {
           <input type="text" name="dateFormat" defaultValue="DD/MM/YYYY" className="border p-2" />
         </div>
         
-        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
-          Upload
+        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+          Upload Test File
         </button>
       </form>
 
