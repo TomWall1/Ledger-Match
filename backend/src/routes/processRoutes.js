@@ -10,8 +10,6 @@ const upload = multer({ storage });
 
 // Process CSV file
 router.post('/process-csv', (req, res) => {
-  console.log('Process CSV route accessed');
-
   upload.single('file')(req, res, async (err) => {
     try {
       if (err) {
@@ -30,7 +28,7 @@ router.post('/process-csv', (req, res) => {
       const dateFormat = req.body.dateFormat || 'YYYY-MM-DD';
       const fileContent = req.file.buffer.toString('utf8');
 
-      // Use Papaparse for more robust CSV parsing
+      // Use Papaparse for robust CSV parsing
       const parseResult = Papa.parse(fileContent, {
         header: true,
         skipEmptyLines: true,
@@ -45,9 +43,6 @@ router.post('/process-csv', (req, res) => {
           details: parseResult.errors
         });
       }
-
-      console.log('CSV Headers:', Object.keys(parseResult.data[0]));
-      console.log('First row:', parseResult.data[0]);
 
       const results = [];
       for (const row of parseResult.data) {
@@ -83,6 +78,84 @@ router.post('/process-csv', (req, res) => {
       });
     }
   });
+});
+
+// Match data endpoint
+router.post('/match-data', express.json(), async (req, res) => {
+  try {
+    console.log('Received match data request');
+    const { company1Data, company2Data } = req.body;
+
+    if (!company1Data || !company2Data) {
+      return res.status(400).json({
+        error: 'Missing data - both company1Data and company2Data are required'
+      });
+    }
+
+    // Initialize results structure
+    const results = {
+      totals: {
+        company1Total: 0,
+        company2Total: 0,
+        variance: 0
+      },
+      perfectMatches: [],
+      mismatches: [],
+      unmatchedItems: {
+        company1: [],
+        company2: []
+      }
+    };
+
+    // Calculate totals
+    results.totals.company1Total = company1Data.reduce((sum, item) => sum + item.amount, 0);
+    results.totals.company2Total = company2Data.reduce((sum, item) => sum + item.amount, 0);
+    results.totals.variance = results.totals.company1Total - results.totals.company2Total;
+
+    // Create lookup maps
+    const company1Map = new Map(company1Data.map(item => [item.transactionNumber, item]));
+    const company2Map = new Map(company2Data.map(item => [item.transactionNumber, item]));
+
+    // Find matches and mismatches
+    for (const [transactionNumber, company1Item] of company1Map) {
+      const company2Item = company2Map.get(transactionNumber);
+      if (company2Item) {
+        if (Math.abs(company1Item.amount + company2Item.amount) < 0.01) { // Using small threshold for float comparison
+          results.perfectMatches.push({
+            company1: company1Item,
+            company2: company2Item
+          });
+        } else {
+          results.mismatches.push({
+            company1: company1Item,
+            company2: company2Item,
+            variance: company1Item.amount + company2Item.amount
+          });
+        }
+        company2Map.delete(transactionNumber); // Remove matched items
+      } else {
+        results.unmatchedItems.company1.push(company1Item);
+      }
+    }
+
+    // Remaining items in company2Map are unmatched
+    results.unmatchedItems.company2 = Array.from(company2Map.values());
+
+    console.log('Match results:', {
+      totalMatches: results.perfectMatches.length,
+      totalMismatches: results.mismatches.length,
+      unmatchedCompany1: results.unmatchedItems.company1.length,
+      unmatchedCompany2: results.unmatchedItems.company2.length
+    });
+
+    return res.json(results);
+
+  } catch (error) {
+    console.error('Error matching data:', error);
+    return res.status(500).json({
+      error: error.message || 'Internal server error'
+    });
+  }
 });
 
 // Helper function to clean amount values
