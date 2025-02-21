@@ -31,7 +31,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Log all requests
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`, {
+  console.log('Request received:', {
+    method: req.method,
+    path: req.path,
     headers: req.headers,
     query: req.query,
     body: req.body
@@ -39,14 +41,23 @@ app.use((req, res, next) => {
   next();
 });
 
-// Mount routes
-app.use('/auth', xeroRoutes);
-app.use('/', processRoutes);
+// Mount test routes first
 app.use('/test', testRoutes);
+
+// Mount other routes
+app.use('/auth', xeroRoutes);
+app.use('/process', processRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({ status: 'API is running' });
+  res.json({
+    status: 'API is running',
+    endpoints: {
+      test: '/test/upload',
+      auth: '/auth',
+      process: '/process'
+    }
+  });
 });
 
 // Error handling middleware
