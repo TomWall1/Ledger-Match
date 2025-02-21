@@ -17,6 +17,7 @@
     "ioredis": "^5.3.2",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^3.3.2",
+    "papaparse": "^5.4.1",
     "xero-node": "^4.36.0"
   }
 }
