@@ -2,7 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import xeroRoutes from './routes/xeroAuth.js';
-import fileRoutes from './routes/fileRoutes.js';
+import processRoutes from './routes/processRoutes.js';
+import testRoutes from './routes/test.js';
 
 dotenv.config();
 
@@ -10,10 +11,12 @@ const app = express();
 
 // Centralized CORS configuration
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'https://ledger-match.vercel.app',
+  origin: 'https://ledger-match.vercel.app',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'],
+  exposedHeaders: ['Content-Type'],
+  credentials: true,
+  maxAge: 86400 // Cache preflight requests for 24 hours
 };
 
 // Enable CORS with configured options
@@ -26,32 +29,52 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Mount routes
+// Log all requests
+app.use((req, res, next) => {
+  console.log('Request received:', {
+    method: req.method,
+    path: req.path,
+    headers: req.headers,
+    query: req.query,
+    body: req.body
+  });
+  next();
+});
+
+// Mount test routes first
+app.use('/test', testRoutes);
+
+// Mount other routes
 app.use('/auth', xeroRoutes);
-app.use('/', fileRoutes);
+app.use('/', processRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({ status: 'API is running' });
-});
-
-// Test endpoint
-app.get('/test-cors', (req, res) => {
-  res.json({ 
-    message: 'CORS is working',
-    origin: req.headers.origin || 'No origin header',
-    method: req.method,
-    headers: req.headers
+  res.json({
+    status: 'API is running',
+    routes: {
+      test: '/test/upload',
+      auth: '/auth',
+      process: '/process-csv'
+    }
   });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
+  console.error('Global error handler:', {
+    error: err,
+    message: err.message,
+    code: err.code,
+    field: err.field,
+    storageErrors: err.storageErrors,
+    stack: err.stack
+  });
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
     path: req.path,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    details: JSON.stringify(err, Object.getOwnPropertyNames(err))
   });
 });
 
@@ -59,13 +82,17 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('Routes set up:', {
+    test: '/test/upload',
+    auth: '/auth',
+    process: '/process-csv'
+  });
   console.log('Environment:', {
     node_env: process.env.NODE_ENV,
     clientId: process.env.XERO_CLIENT_ID ? '✓ Set' : '✗ Missing',
     clientSecret: process.env.XERO_CLIENT_SECRET ? '✓ Set' : '✗ Missing',
     redirectUri: process.env.XERO_REDIRECT_URI,
-    frontend: process.env.FRONTEND_URL,
-    redis: process.env.REDIS_URL ? '✓ Set' : '✗ Missing'
+    frontend: process.env.FRONTEND_URL
   });
 });
 
