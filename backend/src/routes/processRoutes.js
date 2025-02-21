@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import Papa from 'papaparse';
 
 const router = express.Router();
 
@@ -10,15 +11,9 @@ const upload = multer({ storage });
 // Process CSV file
 router.post('/process-csv', (req, res) => {
   console.log('Process CSV route accessed');
-  console.log('Headers:', req.headers);
 
   upload.single('file')(req, res, async (err) => {
     try {
-      console.log('Multer callback');
-      console.log('Body:', req.body);
-      console.log('File:', req.file);
-      console.log('Error:', err);
-
       if (err) {
         console.error('Upload error:', err);
         return res.status(400).json({ 
@@ -33,43 +28,47 @@ router.post('/process-csv', (req, res) => {
       }
 
       const dateFormat = req.body.dateFormat || 'YYYY-MM-DD';
-      
-      // Process the file content
       const fileContent = req.file.buffer.toString('utf8');
-      const lines = fileContent.trim().split('\n').map(line => line.trim());
 
-      if (lines.length < 2) {
-        return res.status(400).json({ error: 'CSV must contain headers and at least one data row' });
+      // Use Papaparse for more robust CSV parsing
+      const parseResult = Papa.parse(fileContent, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: false,
+        transformHeader: (header) => header.trim(),
+      });
+
+      if (parseResult.errors.length > 0) {
+        console.error('CSV parsing errors:', parseResult.errors);
+        return res.status(400).json({
+          error: 'CSV parsing failed',
+          details: parseResult.errors
+        });
       }
 
-      const headers = lines[0].split(',').map(h => h.trim());
-      console.log('CSV Headers:', headers);
+      console.log('CSV Headers:', Object.keys(parseResult.data[0]));
+      console.log('First row:', parseResult.data[0]);
 
       const results = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i];
-        const values = line.split(',').map(v => v.trim());
-
-        // Create row data object
-        const rowData = {};
-        headers.forEach((header, index) => {
-          rowData[header] = values[index] || '';
-        });
-
+      for (const row of parseResult.data) {
         try {
           results.push({
-            transactionNumber: String(rowData.transaction_number || '').trim(),
-            type: String(rowData.transaction_type || '').trim(),
-            amount: cleanAmount(rowData.amount),
-            date: parseDateString(rowData.issue_date, dateFormat),
-            dueDate: parseDateString(rowData.due_date, dateFormat),
-            status: String(rowData.status || '').trim(),
-            reference: rowData.reference ? String(rowData.reference).trim() : ''
+            transactionNumber: String(row.transaction_number || '').trim(),
+            type: String(row.transaction_type || '').trim(),
+            amount: cleanAmount(row.amount),
+            date: parseDateString(row.issue_date, dateFormat),
+            dueDate: parseDateString(row.due_date, dateFormat),
+            status: String(row.status || '').trim(),
+            reference: row.reference ? String(row.reference).trim() : ''
           });
         } catch (error) {
+          console.error('Row processing error:', {
+            error: error.message,
+            row: row
+          });
           return res.status(400).json({
-            error: `Error in row ${i + 1}: ${error.message}`,
-            row: rowData
+            error: `Error in row ${parseResult.data.indexOf(row) + 1}: ${error.message}`,
+            row: row
           });
         }
       }
@@ -90,7 +89,10 @@ router.post('/process-csv', (req, res) => {
 const cleanAmount = (amountStr) => {
   if (!amountStr) return 0;
   try {
-    const cleaned = amountStr.toString()
+    // Remove any quotes first
+    let cleaned = amountStr.toString().replace(/["']/g, '');
+    // Then remove currency symbols and spaces
+    cleaned = cleaned
       .replace(/[$£€¥]/g, '')
       .replace(/,/g, '')
       .replace(/\s/g, '')
@@ -113,7 +115,7 @@ const parseDateString = (dateStr, format) => {
 
   try {
     let day, month, year;
-    dateStr = dateStr.trim();
+    dateStr = dateStr.toString().trim();
     const parts = dateStr.split(/[\/\-]/).map(part => part.trim());
 
     switch (format) {
