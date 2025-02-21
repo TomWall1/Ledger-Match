@@ -3,28 +3,48 @@ import multer from 'multer';
 
 const router = express.Router();
 
-// Create basic multer instance
-const upload = multer();
+// Configure multer
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-// Test route
-router.post('/upload', upload.single('file'), (req, res) => {
-  console.log('Test route accessed');
+// Basic test endpoint
+router.get('/', (req, res) => {
+  res.json({ message: 'Test route is working' });
+});
+
+// File upload test endpoint
+router.post('/upload', (req, res) => {
+  console.log('Test upload route accessed');
   console.log('Headers:', req.headers);
-  console.log('Body:', req.body);
-  console.log('File:', req.file);
 
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file received' });
-  }
+  upload.single('file')(req, res, (err) => {
+    console.log('Multer callback');
+    console.log('Body:', req.body);
+    console.log('File:', req.file);
+    console.log('Error:', err);
 
-  res.json({
-    message: 'File received',
-    file: {
-      name: req.file.originalname,
-      size: req.file.size,
-      type: req.file.mimetype
-    },
-    dateFormat: req.body.dateFormat
+    if (err) {
+      console.error('Upload error:', err);
+      return res.status(400).json({ 
+        error: err.message,
+        code: err.code,
+        field: err.field
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file received' });
+    }
+
+    res.json({
+      message: 'File received',
+      file: {
+        name: req.file.originalname,
+        size: req.file.size,
+        type: req.file.mimetype
+      },
+      dateFormat: req.body.dateFormat
+    });
   });
 });
 
