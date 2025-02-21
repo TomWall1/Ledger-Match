@@ -1,32 +1,31 @@
--2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Back to Import
-            </button>
-          </div>
-          <MatchingResults matchResults={matches} />
-        </>
-      )}
-    </div>
-  );
-}
+const processFile = async (file, dateFormat) => {
+    // Create form data
+    const formData = new FormData();
+    formData.append('csvFile', file);
+    formData.append('dateFormat', dateFormat);
 
-function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/auth/xero" element={<XeroAuth />} />
-        <Route path="/auth/xero/callback" element={<XeroCallback />} />
-        <Route
-          path="/*"
-          element={
-            <PrivateRoute>
-              <MainApp />
-            </PrivateRoute>
-          }
-        />
-      </Routes>
-    </Router>
-  );
-}
+    console.log('Sending file:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      dateFormat: dateFormat
+    });
 
-export default App;
+    const response = await fetch('https://ledger-match-backend.onrender.com/process-csv', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = await response.text();
+      }
+      console.error('Server error:', errorData);
+      throw new Error(`Failed to process CSV file: ${JSON.stringify(errorData)}`);
+    }
+
+    return await response.json();
+  };
