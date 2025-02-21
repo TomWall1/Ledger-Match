@@ -3,31 +3,32 @@ import multer from 'multer';
 
 const router = express.Router();
 
-// Configure multer with memory storage
-const upload = multer({ storage: multer.memoryStorage() });
+// Create multer instance without any options
+const upload = multer();
 
 // Process CSV file
-router.post('/process-csv', upload.single('file'), async (req, res) => {
-  console.log('Request received:', {
-    file: req.file ? {
-      originalname: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype
-    } : null,
-    body: req.body
-  });
-
+router.post('/process-csv', upload.any(), async (req, res) => {
   try {
-    if (!req.file) {
+    console.log('Request received:', {
+      files: req.files ? req.files.map(f => ({ 
+        fieldname: f.fieldname,
+        originalname: f.originalname,
+        mimetype: f.mimetype,
+        size: f.size
+      })) : [],
+      body: req.body
+    });
+
+    if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Extract date format from filename (format__DATEFORMAT.csv)
-    const dateFormat = req.file.originalname.split('__')[1]?.split('.')[0] || 'YYYY-MM-DD';
-    console.log('Using date format:', dateFormat);
+    // Get the first file
+    const file = req.files[0];
+    const dateFormat = req.body.dateFormat || 'YYYY-MM-DD';
 
     // Process the file content
-    const fileContent = req.file.buffer.toString('utf8');
+    const fileContent = file.buffer.toString('utf8');
     const lines = fileContent.trim().split('\n').map(line => line.trim());
 
     if (lines.length < 2) {
