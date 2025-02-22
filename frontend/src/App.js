@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import MatchingResults from './components/MatchingResults.jsx';
 import DateFormatSelect from './components/DateFormatSelect.jsx';
 import XeroAuth from './components/XeroAuth.js';
@@ -162,39 +162,52 @@ function MainApp() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      {currentScreen === 'upload' ? (
-        <>
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Ledger Matching Tool</h1>
-            {!isAuthenticated && (
-              <a 
-                href="/auth/xero"
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Connect to Xero
-              </a>
-            )}
-          </div>
-          
-          {error && (
-            <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
+    <div className="min-h-screen bg-secondary-white">
+      <nav className="bg-primary-navy text-white py-4 mb-8 shadow-lg">
+        <div className="container mx-auto px-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+            </svg>
+            LedgerLink
+          </h1>
+          {!isAuthenticated && (
+            <a 
+              href="/auth/xero"
+              className="flex items-center px-4 py-2 bg-accent-blue text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <img 
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRK9TSFH5YNbmgR7PIcX8mG-sB-iBOLPTwfGe_iVjw&s" 
+                alt="Xero logo" 
+                className="w-5 h-5 mr-2" 
+              />
+              Connect to Xero
+            </a>
           )}
+        </div>
+      </nav>
 
+      <div className="container mx-auto px-4">
+        {currentScreen === 'upload' ? (
           <div className="space-y-8">
+            {error && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                {error}
+              </div>
+            )}
+
             <div className="flex justify-end">
               <button
                 onClick={handleTemplateDownload}
-                className="px-4 py-2 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                className="px-4 py-2 text-sm bg-primary-teal text-white rounded-lg hover:bg-teal-600 transition-colors"
               >
                 Download Template CSV
               </button>
             </div>
 
-            <div className="border rounded-lg p-6 bg-white">
-              <h2 className="text-lg font-semibold mb-4">Accounts Receivable Ledger</h2>
+            <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+              <h2 className="text-lg font-semibold mb-4 text-primary-navy">Accounts Receivable Ledger</h2>
               <ARSourceSelector 
                 onFileSelected={(data) => handleFileUpload('company1', data)}
                 onDateFormatChange={(format) => handleDateFormatChange('company1', format)}
@@ -204,15 +217,15 @@ function MainApp() {
               />
             </div>
 
-            <div className="border rounded-lg p-6 bg-white">
-              <h2 className="text-lg font-semibold mb-4">Accounts Payable Ledger</h2>
+            <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+              <h2 className="text-lg font-semibold mb-4 text-primary-navy">Accounts Payable Ledger</h2>
               <FileUpload 
                 onFileSelected={(file) => handleFileUpload('company2', { type: 'csv', file })} 
                 accept=".csv"
                 label="Upload Accounts Payable CSV"
               />
               {files.company2?.type === 'csv' && files.company2.file && (
-                <p className="mt-2 text-sm text-green-600">
+                <p className="mt-2 text-sm text-accent-green">
                   ✓ {files.company2.file.name} uploaded
                 </p>
               )}
@@ -227,53 +240,59 @@ function MainApp() {
               <button
                 onClick={handleProcessFiles}
                 disabled={!files.company1 || !files.company2 || isLoading}
-                className={`px-6 py-3 rounded-lg font-medium text-white
+                className={`px-6 py-3 rounded-lg font-medium text-white transition-colors
                   ${files.company1 && files.company2 && !isLoading
-                    ? 'bg-blue-500 hover:bg-blue-600' 
+                    ? 'bg-primary-teal hover:bg-teal-600' 
                     : 'bg-gray-300 cursor-not-allowed'}`}
               >
-                {isLoading ? 'Processing...' : 'Match'}
+                {isLoading ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Processing...
+                  </span>
+                ) : 'Match Records'}
               </button>
             </div>
 
-            <div className="mt-12">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h2 className="text-lg font-semibold mb-3 text-blue-800">
-                  Data Requirements
-                </h2>
-                <div>
-                  <h3 className="font-medium text-blue-800 mb-2">Required Fields:</h3>
-                  <ul className="list-disc list-inside space-y-1 text-blue-900">
-                    <li>transaction_number</li>
-                    <li>transaction_type</li>
-                    <li>amount (decimal number)</li>
-                    <li>issue_date (select format above)</li>
-                    <li>due_date (select format above)</li>
-                    <li>status</li>
-                    <li>reference</li>
-                  </ul>
-                </div>
+            <div className="bg-primary-navy bg-opacity-5 rounded-lg p-6">
+              <h2 className="text-lg font-semibold mb-3 text-primary-navy">
+                Data Requirements
+              </h2>
+              <div>
+                <h3 className="font-medium text-primary-navy mb-2">Required Fields:</h3>
+                <ul className="list-disc list-inside space-y-1 text-secondary-gray">
+                  <li>transaction_number</li>
+                  <li>transaction_type</li>
+                  <li>amount (decimal number)</li>
+                  <li>issue_date (select format above)</li>
+                  <li>due_date (select format above)</li>
+                  <li>status</li>
+                  <li>reference</li>
+                </ul>
               </div>
             </div>
           </div>
-        </>
-      ) : (
-        <>
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Ledger Matching Results</h1>
-            <button
-              onClick={() => {
-                setCurrentScreen('upload');
-                setFiles({ company1: null, company2: null });
-              }}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Back to Import
-            </button>
-          </div>
-          <MatchingResults matchResults={matches} />
-        </>
-      )}
+        ) : (
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-2xl font-bold text-primary-navy">Matching Results</h1>
+              <button
+                onClick={() => {
+                  setCurrentScreen('upload');
+                  setFiles({ company1: null, company2: null });
+                }}
+                className="px-4 py-2 bg-primary-teal text-white rounded-lg hover:bg-teal-600 transition-colors"
+              >
+                Back to Import
+              </button>
+            </div>
+            <MatchingResults matchResults={matches} />
+          </>
+        )}
+      </div>
     </div>
   );
 }
