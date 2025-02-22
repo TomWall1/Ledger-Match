@@ -83,7 +83,7 @@ const XeroAuth = () => {
 
   return (
     <div className="min-h-screen bg-secondary-white">
-      <nav className="bg-primary-navy text-white py-4 mb-8 shadow-lg">
+      <nav className="bg-primary-navy text-white py-4 shadow-lg">
         <div className="container mx-auto px-4">
           <h1 className="text-2xl font-bold flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -100,9 +100,9 @@ const XeroAuth = () => {
           <div className="p-8">
             <div className="flex items-center justify-center mb-6">
               <img 
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRK9TSFH5YNbmgR7PIcX8mG-sB-iBOLPTwfGe_iVjw&s" 
+                src="https://www.xero.com/etc/designs/xero/public/assets/images/xero-logo-new.svg" 
                 alt="Xero logo" 
-                className="h-12 w-12" 
+                className="h-12" 
               />
             </div>
             
@@ -134,7 +134,8 @@ const XeroAuth = () => {
             <button
               onClick={handleConnect}
               disabled={isLoading}
-              className={`w-full flex justify-center items-center py-3 px-4 rounded-lg font-medium text-white transition-colors ${isLoading ? 'bg-primary-teal/70 cursor-not-allowed' : 'bg-primary-teal hover:bg-teal-600'}`}
+              className={`w-full flex justify-center items-center py-3 px-4 rounded-lg font-medium text-white transition-colors
+                ${isLoading ? 'bg-xero-blue/70 cursor-not-allowed' : 'bg-xero-blue hover:bg-xero-hover'}`}
             >
               {isLoading ? (
                 <>
@@ -146,9 +147,11 @@ const XeroAuth = () => {
                 </>
               ) : (
                 <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+                  <img 
+                    src="https://www.xero.com/etc/designs/xero/public/assets/images/xero-logo-new.svg" 
+                    alt="Xero logo" 
+                    className="w-5 h-5 mr-2 filter brightness-0 invert" 
+                  />
                   Connect with Xero
                 </>
               )}
