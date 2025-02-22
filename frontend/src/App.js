@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import MatchingResults from './components/MatchingResults.jsx';
 import DateFormatSelect from './components/DateFormatSelect.jsx';
 import XeroAuth from './components/XeroAuth.js';
@@ -9,38 +9,9 @@ import { FileUpload } from './components/FileUpload.jsx';
 import { AuthUtils } from './utils/auth.js';
 import { TestUpload } from './components/TestUpload.jsx';
 
-function PrivateRoute({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const authenticated = params.get('authenticated');
-      if (authenticated === 'true') {
-        AuthUtils.setAuthState({ isAuthenticated: true });
-        setIsAuthenticated(true);
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } else {
-        const authStatus = await AuthUtils.verifyAuth();
-        setIsAuthenticated(authStatus);
-      }
-      setIsLoading(false);
-    };
-
-    checkAuth();
-  }, [location.search]);
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  return isAuthenticated ? children : <Navigate to="/auth/xero" />;
-}
-
 function MainApp() {
   const [currentScreen, setCurrentScreen] = useState('upload');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [matches, setMatches] = useState({
     totals: {
       company1Total: "0.00",
@@ -64,6 +35,15 @@ function MainApp() {
     company1: 'YYYY-MM-DD',
     company2: 'YYYY-MM-DD'
   });
+
+  // Check Xero auth status on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const authStatus = await AuthUtils.verifyAuth();
+      setIsAuthenticated(authStatus);
+    };
+    checkAuth();
+  }, []);
 
   const handleFileUpload = (companyKey, fileData) => {
     setFiles(prev => ({
@@ -174,7 +154,17 @@ function MainApp() {
     <div className="container mx-auto p-4">
       {currentScreen === 'upload' ? (
         <>
-          <h1 className="text-2xl font-bold mb-6">Ledger Matching Tool</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold">Ledger Matching Tool</h1>
+            {!isAuthenticated && (
+              <a 
+                href="/auth/xero"
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Connect to Xero
+              </a>
+            )}
+          </div>
           
           {error && (
             <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -199,6 +189,7 @@ function MainApp() {
                 onDateFormatChange={(format) => handleDateFormatChange('company1', format)}
                 selectedDateFormat={dateFormats.company1}
                 file={files.company1}
+                isXeroAuthenticated={isAuthenticated}
               />
             </div>
 
@@ -283,14 +274,7 @@ function App() {
         <Route path="/auth/xero" element={<XeroAuth />} />
         <Route path="/auth/xero/callback" element={<XeroCallback />} />
         <Route path="/test" element={<TestUpload />} />
-        <Route
-          path="/*"
-          element={
-            <PrivateRoute>
-              <MainApp />
-            </PrivateRoute>
-          }
-        />
+        <Route path="/*" element={<MainApp />} />
       </Routes>
     </Router>
   );
