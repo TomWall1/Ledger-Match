@@ -18,6 +18,10 @@ module.exports = {
           blue: '#0077CC',    // Electric Blue
           green: '#7BDCB5',   // Mint Green
         },
+        xero: {
+          blue: '#13B5EA',    // Xero Brand Blue
+          hover: '#0FA3D4',   // Slightly darker for hover state
+        },
       },
       container: {
         center: true,
