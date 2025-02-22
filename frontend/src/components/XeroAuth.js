@@ -1,89 +1,44 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import axios from 'axios';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const XeroAuth = () => {
-  const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState(null);
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.state?.error) {
-      setError(location.state.error);
-    }
-  }, [location]);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   const handleConnect = async () => {
-    console.log('Button clicked - start');
     setIsLoading(true);
     setError(null);
     
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const fullUrl = `${apiUrl}/auth/xero`;
-      
-      // Store debug info
-      const debug = {
-        apiUrl,
-        fullUrl,
-        env: process.env.NODE_ENV,
-        timestamp: new Date().toISOString()
-      };
-      setDebugInfo(debug);
-      console.log('Debug info:', debug);
-
-      console.log('Making request to:', fullUrl);
-      const response = await axios({
-        method: 'get',
-        url: fullUrl,
+      const response = await fetch('https://ledger-match-backend.onrender.com/auth/xero', {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
         },
-        withCredentials: true,
-        timeout: 30000 // 30 second timeout
       });
-      
-      console.log('Response received:', response);
 
-      if (response?.data?.url) {
-        console.log('Redirecting to:', response.data.url);
-        window.location.href = response.data.url;
+      if (!response.ok) {
+        throw new Error('Failed to connect to Xero');
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
       } else {
         throw new Error('No authorization URL received');
       }
     } catch (error) {
-      console.error('Connection error:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-        code: error.code
-      });
-      
-      let errorMessage = 'Failed to connect to Xero';
-      if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Connection timeout - the server is taking too long to respond. Please try again.';
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Authentication failed. Please try again.';
-      } else if (error.response?.status === 403) {
-        errorMessage = 'Access denied. Please check your permissions.';
-      } else if (error.response?.data?.error) {
-        errorMessage = `Error: ${error.response.data.error}`;
-      } else {
-        errorMessage = `Error: ${error.message}`;
-      }
-      
-      setError(errorMessage);
+      console.error('Xero connection error:', error);
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-secondary-white">
-      <nav className="bg-primary-navy text-white py-4 shadow-lg">
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-[#1B365D] text-white py-4 shadow-lg">
         <div className="container mx-auto px-4">
           <h1 className="text-2xl font-bold flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -95,39 +50,27 @@ const XeroAuth = () => {
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 pt-8">
+      <div className="container mx-auto px-4 py-8">
         <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="p-8">
             <div className="flex items-center justify-center mb-6">
               <img 
-                src="https://www.xero.com/etc/designs/xero/public/assets/images/xero-logo-new.svg" 
+                src="https://www.xero.com/content/dam/xero/pilot-images/logo/x_secondary_blue_RGB.svg" 
                 alt="Xero logo" 
                 className="h-12" 
               />
             </div>
             
-            <h2 className="text-2xl font-bold text-center text-primary-navy mb-2">
+            <h2 className="text-2xl font-bold text-center text-[#1B365D] mb-2">
               Connect to Xero
             </h2>
-            <p className="text-secondary-gray text-center mb-8">
+            <p className="text-[#647789] text-center mb-8">
               Connect your Xero account to import your accounting data
             </p>
 
             {error && (
               <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="text-red-700 font-medium mb-2">{error}</div>
-                {debugInfo && (
-                  <div className="text-sm">
-                    <details>
-                      <summary className="cursor-pointer text-red-600 hover:text-red-800">
-                        Debug Information
-                      </summary>
-                      <pre className="mt-2 p-2 bg-red-50 rounded overflow-x-auto text-xs">
-                        {JSON.stringify(debugInfo, null, 2)}
-                      </pre>
-                    </details>
-                  </div>
-                )}
+                <div className="text-red-700 font-medium">{error}</div>
               </div>
             )}
 
@@ -135,7 +78,7 @@ const XeroAuth = () => {
               onClick={handleConnect}
               disabled={isLoading}
               className={`w-full flex justify-center items-center py-3 px-4 rounded-lg font-medium text-white transition-colors
-                ${isLoading ? 'bg-xero-blue/70 cursor-not-allowed' : 'bg-xero-blue hover:bg-xero-hover'}`}
+                ${isLoading ? 'bg-[#13B5EA]/70 cursor-not-allowed' : 'bg-[#13B5EA] hover:bg-[#0FA3D4]'}`}
             >
               {isLoading ? (
                 <>
@@ -148,7 +91,7 @@ const XeroAuth = () => {
               ) : (
                 <>
                   <img 
-                    src="https://www.xero.com/etc/designs/xero/public/assets/images/xero-logo-new.svg" 
+                    src="https://www.xero.com/content/dam/xero/pilot-images/logo/x_secondary_blue_RGB.svg" 
                     alt="Xero logo" 
                     className="w-5 h-5 mr-2 filter brightness-0 invert" 
                   />
@@ -163,7 +106,7 @@ const XeroAuth = () => {
                   <div className="w-full border-t border-gray-200" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-secondary-gray">
+                  <span className="px-2 bg-white text-[#647789]">
                     Or go back to
                   </span>
                 </div>
@@ -172,7 +115,7 @@ const XeroAuth = () => {
               <div className="mt-6">
                 <a
                   href="/"
-                  className="w-full flex justify-center items-center py-3 px-4 border border-gray-200 rounded-lg font-medium text-secondary-gray hover:bg-secondary-white transition-colors"
+                  className="w-full flex justify-center items-center py-3 px-4 border border-gray-200 rounded-lg font-medium text-[#647789] hover:bg-gray-50 transition-colors"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
