@@ -28,12 +28,21 @@ router.post('/process-csv', (req, res) => {
       const dateFormat = req.body.dateFormat || 'DD/MM/YYYY';
       const fileContent = req.file.buffer.toString('utf8');
 
-      // Use Papaparse with configuration for space-delimited files
+      console.log('Processing CSV with format:', {
+        dateFormat,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        firstFewChars: fileContent.substring(0, 100)
+      });
+
+      // Use Papaparse with improved configuration
       const parseResult = Papa.parse(fileContent, {
-        delimiter: ' ',     // Use space as delimiter
-        skipEmptyLines: true,
-        transform: (value) => value.trim(), // Trim each value
-        transformHeader: (header) => header.trim().toLowerCase(), // Normalize headers
+        header: true,
+        skipEmptyLines: 'greedy',
+        transformHeader: (header) => header.trim().toLowerCase(),
+        transform: (value) => value.trim(),
+        delimitersToGuess: [',', '\t', '|', ';'],  // Try multiple delimiters
+        dynamicTyping: false  // Keep everything as strings for now
       });
 
       if (parseResult.errors.length > 0) {
@@ -44,7 +53,10 @@ router.post('/process-csv', (req, res) => {
         });
       }
 
-      // Filter out empty rows and columns
+      console.log('CSV Parse Result Headers:', parseResult.meta.fields);
+      console.log('First row raw:', parseResult.data[0]);
+
+      // Filter out empty rows and clean the data
       const data = parseResult.data.filter(row => 
         Object.values(row).some(val => val && val.trim())
       ).map(row => {
@@ -57,14 +69,15 @@ router.post('/process-csv', (req, res) => {
         return cleanRow;
       });
 
-      console.log('First parsed row:', data[0]);
-
       const results = [];
       for (const row of data) {
         try {
-          if (!row.transaction_number) continue; // Skip rows without transaction number
+          if (!row.transaction_number) {
+            console.warn('Skipping row without transaction number:', row);
+            continue;
+          }
 
-          results.push({
+          const processedRow = {
             transactionNumber: String(row.transaction_number || '').trim(),
             type: String(row.transaction_type || '').trim(),
             amount: cleanAmount(row.amount),
@@ -72,7 +85,14 @@ router.post('/process-csv', (req, res) => {
             dueDate: parseDateString(row.due_date, dateFormat),
             status: String(row.status || '').trim(),
             reference: row.reference ? String(row.reference).trim() : ''
+          };
+
+          console.log('Processed row:', {
+            original: row,
+            processed: processedRow
           });
+
+          results.push(processedRow);
         } catch (error) {
           console.error('Row processing error:', {
             error: error.message,
@@ -103,11 +123,10 @@ const cleanAmount = (amountStr) => {
   if (!amountStr) return 0;
   try {
     // Handle negative amounts with dollar signs
-    const isNegative = amountStr.startsWith('-');
-    // Remove negative sign, dollar sign, commas, and spaces
+    const isNegative = amountStr.includes('-');
+    // Remove dollar sign, commas, minus signs, and spaces
     let cleaned = amountStr
-      .replace(/^-/, '')           // Remove leading minus
-      .replace(/[$,\s]/g, '')      // Remove dollar sign, commas, and spaces
+      .replace(/[^0-9.]/g, '')  // Remove all non-numeric characters except decimal point
       .trim();
 
     const amount = parseFloat(cleaned);
@@ -135,15 +154,25 @@ const parseDateString = (dateStr, format) => {
       throw new Error(`Invalid date format: ${dateStr}`);
     }
 
-    switch (format) {
+    // Handle various date formats
+    switch (format.toUpperCase()) {
       case 'DD/MM/YYYY':
+      case 'DD-MM-YYYY':
         [day, month, year] = parts;
         break;
-      default:
+      case 'MM/DD/YYYY':
+      case 'MM-DD-YYYY':
+        [month, day, year] = parts;
+        break;
+      case 'YYYY/MM/DD':
+      case 'YYYY-MM-DD':
         [year, month, day] = parts;
+        break;
+      default:
+        throw new Error(`Unsupported date format: ${format}`);
     }
 
-    // Ensure values are numbers
+    // Convert to numbers and validate
     day = parseInt(day, 10);
     month = parseInt(month, 10);
     year = parseInt(year, 10);
@@ -152,9 +181,14 @@ const parseDateString = (dateStr, format) => {
       throw new Error(`Invalid date components: ${dateStr}`);
     }
 
+    // Handle 2-digit years
+    if (year < 100) {
+      year += year < 50 ? 2000 : 1900;
+    }
+
     // Validate date range
     if (day < 1 || day > 31 || month < 1 || month > 12) {
-      throw new Error(`Invalid date values: ${dateStr}`);
+      throw new Error(`Invalid date values: day=${day}, month=${month}`);
     }
 
     // Construct and validate date
@@ -182,6 +216,13 @@ router.post('/match-data', express.json(), async (req, res) => {
       });
     }
 
+    console.log('Data received:', {
+      company1Length: company1Data.length,
+      company2Length: company2Data.length,
+      company1Sample: company1Data[0],
+      company2Sample: company2Data[0]
+    });
+
     // Initialize results structure
     const results = {
       totals: {
@@ -198,19 +239,54 @@ router.post('/match-data', express.json(), async (req, res) => {
     };
 
     // Calculate totals
-    results.totals.company1Total = company1Data.reduce((sum, item) => sum + item.amount, 0);
-    results.totals.company2Total = company2Data.reduce((sum, item) => sum + item.amount, 0);
+    results.totals.company1Total = company1Data.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    results.totals.company2Total = company2Data.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
     results.totals.variance = results.totals.company1Total - results.totals.company2Total;
 
     // Create lookup maps
-    const company1Map = new Map(company1Data.map(item => [item.transactionNumber, item]));
-    const company2Map = new Map(company2Data.map(item => [item.transactionNumber, item]));
+    const company1Map = new Map();
+    const company2Map = new Map();
+
+    // Populate maps with proper data validation
+    company1Data.forEach(item => {
+      if (item.transactionNumber) {
+        company1Map.set(item.transactionNumber.trim(), {
+          ...item,
+          amount: parseFloat(item.amount) || 0
+        });
+      }
+    });
+
+    company2Data.forEach(item => {
+      if (item.transactionNumber) {
+        company2Map.set(item.transactionNumber.trim(), {
+          ...item,
+          amount: parseFloat(item.amount) || 0
+        });
+      }
+    });
+
+    console.log('Map sizes:', {
+      company1MapSize: company1Map.size,
+      company2MapSize: company2Map.size
+    });
 
     // Find matches and mismatches
     for (const [transactionNumber, company1Item] of company1Map) {
       const company2Item = company2Map.get(transactionNumber);
+      
+      console.log('Checking match for:', {
+        transactionNumber,
+        company1Amount: company1Item.amount,
+        company2Amount: company2Item ? company2Item.amount : 'Not found'
+      });
+
       if (company2Item) {
-        if (Math.abs(company1Item.amount + company2Item.amount) < 0.01) { // Using small threshold for float comparison
+        // AR should be positive, AP should be negative
+        const expectedOppositeAmount = -company1Item.amount;
+        const variance = company2Item.amount - expectedOppositeAmount;
+
+        if (Math.abs(variance) < 0.01) { // Using small threshold for float comparison
           results.perfectMatches.push({
             company1: company1Item,
             company2: company2Item
@@ -219,7 +295,7 @@ router.post('/match-data', express.json(), async (req, res) => {
           results.mismatches.push({
             company1: company1Item,
             company2: company2Item,
-            variance: company1Item.amount + company2Item.amount
+            variance: variance
           });
         }
         company2Map.delete(transactionNumber); // Remove matched items
@@ -235,7 +311,10 @@ router.post('/match-data', express.json(), async (req, res) => {
       totalMatches: results.perfectMatches.length,
       totalMismatches: results.mismatches.length,
       unmatchedCompany1: results.unmatchedItems.company1.length,
-      unmatchedCompany2: results.unmatchedItems.company2.length
+      unmatchedCompany2: results.unmatchedItems.company2.length,
+      company1Total: results.totals.company1Total,
+      company2Total: results.totals.company2Total,
+      variance: results.totals.variance
     });
 
     return res.json(results);
