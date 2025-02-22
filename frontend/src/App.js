@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import MatchingResults from './components/MatchingResults.jsx';
 import DateFormatSelect from './components/DateFormatSelect.jsx';
 import XeroAuth from './components/XeroAuth.js';
@@ -12,6 +12,7 @@ import { TestUpload } from './components/TestUpload.jsx';
 function MainApp() {
   const [currentScreen, setCurrentScreen] = useState('upload');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const location = useLocation();
   const [matches, setMatches] = useState({
     totals: {
       company1Total: "0.00",
@@ -36,14 +37,24 @@ function MainApp() {
     company2: 'YYYY-MM-DD'
   });
 
-  // Check Xero auth status on component mount
+  // Check Xero auth status on component mount and URL changes
   useEffect(() => {
     const checkAuth = async () => {
-      const authStatus = await AuthUtils.verifyAuth();
-      setIsAuthenticated(authStatus);
+      const params = new URLSearchParams(location.search);
+      const authenticated = params.get('authenticated');
+      
+      if (authenticated === 'true') {
+        AuthUtils.setAuthState({ isAuthenticated: true });
+        setIsAuthenticated(true);
+        // Clear the URL parameter
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        const authStatus = await AuthUtils.verifyAuth();
+        setIsAuthenticated(authStatus);
+      }
     };
     checkAuth();
-  }, []);
+  }, [location.search]);
 
   const handleFileUpload = (companyKey, fileData) => {
     setFiles(prev => ({
