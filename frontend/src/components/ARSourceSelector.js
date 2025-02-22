@@ -75,18 +75,26 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
         <div className="flex space-x-4 mb-4">
           <button
             onClick={() => setSourceType('csv')}
-            className={`px-4 py-2 rounded-lg ${sourceType === 'csv' ? 
-              'bg-blue-600 text-white' : 
-              'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`flex items-center px-4 py-2 rounded-lg ${sourceType === 'csv' ? 
+              'bg-primary-navy text-white' : 
+              'bg-secondary-white text-secondary-gray hover:bg-gray-100'}`}
           >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
             Upload CSV
           </button>
           <button
             onClick={() => setSourceType('xero')}
-            className={`px-4 py-2 rounded-lg ${sourceType === 'xero' ? 
-              'bg-blue-600 text-white' : 
-              'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            className={`flex items-center px-4 py-2 rounded-lg ${sourceType === 'xero' ? 
+              'bg-primary-navy text-white' : 
+              'bg-secondary-white text-secondary-gray hover:bg-gray-100'}`}
           >
+            <img 
+              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRK9TSFH5YNbmgR7PIcX8mG-sB-iBOLPTwfGe_iVjw&s" 
+              alt="Xero logo" 
+              className="w-4 h-4 mr-2" 
+            />
             From Xero
           </button>
         </div>
@@ -100,7 +108,7 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
             label="Upload Accounts Receivable CSV"
           />
           {file?.type === 'csv' && file.file && (
-            <p className="mt-2 text-sm text-green-600">
+            <p className="mt-2 text-sm text-accent-green">
               ✓ {file.file.name} uploaded
             </p>
           )}
@@ -113,7 +121,7 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
       ) : (
         <div className="space-y-4">
           {loading ? (
-            <div className="text-gray-600">
+            <div className="text-secondary-gray">
               <svg className="inline animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -125,25 +133,26 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
               {error}
               <button 
                 onClick={fetchCustomers}
-                className="ml-2 text-blue-600 hover:text-blue-800 underline"
+                className="ml-2 text-accent-blue hover:text-blue-800 underline"
               >
                 Retry
               </button>
             </div>
           ) : (
-            <div className="max-h-60 overflow-y-auto border rounded-lg">
+            <div className="max-h-60 overflow-y-auto border rounded-lg bg-white">
               {customers.length === 0 ? (
-                <p className="p-4 text-gray-600">No customers found in Xero</p>
+                <p className="p-4 text-secondary-gray">No customers found in Xero</p>
               ) : (
                 <ul className="divide-y">
                   {customers.map(customer => (
                     <li 
                       key={customer.ContactID}
-                      className={`p-4 cursor-pointer hover:bg-gray-50 ${selectedCustomer === customer.ContactID ? 'bg-blue-50' : ''}`}
+                      className={`p-4 cursor-pointer hover:bg-secondary-white 
+                        ${selectedCustomer === customer.ContactID ? 'bg-primary-teal bg-opacity-10' : ''}`}
                       onClick={() => handleCustomerSelect(customer)}
                     >
-                      <div className="font-medium">{customer.Name}</div>
-                      <div className="text-sm text-gray-600">
+                      <div className="font-medium text-primary-navy">{customer.Name}</div>
+                      <div className="text-sm text-secondary-gray">
                         Balance: ${customer.Balances?.AccountsReceivable?.Outstanding || '0.00'}
                       </div>
                     </li>
