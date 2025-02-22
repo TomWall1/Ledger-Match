@@ -282,11 +282,9 @@ router.post('/match-data', express.json(), async (req, res) => {
       });
 
       if (company2Item) {
-        // AR should be positive, AP should be negative
-        const expectedOppositeAmount = -company1Item.amount;
-        const variance = company2Item.amount - expectedOppositeAmount;
-
-        if (Math.abs(variance) < 0.01) { // Using small threshold for float comparison
+        // We consider items matched if their absolute values are equal
+        // This way, -10.41 will match with -10.41 directly
+        if (Math.abs(Math.abs(company1Item.amount) - Math.abs(company2Item.amount)) < 0.01) {
           results.perfectMatches.push({
             company1: company1Item,
             company2: company2Item
@@ -295,7 +293,7 @@ router.post('/match-data', express.json(), async (req, res) => {
           results.mismatches.push({
             company1: company1Item,
             company2: company2Item,
-            variance: variance
+            variance: Math.abs(company1Item.amount) - Math.abs(company2Item.amount)
           });
         }
         company2Map.delete(transactionNumber); // Remove matched items
