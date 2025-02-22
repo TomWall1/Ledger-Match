@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileUpload } from './FileUpload';
 import DateFormatSelect from './DateFormatSelect';
 
-const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateFormat, file }) => {
+const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateFormat, file, isXeroAuthenticated }) => {
   const [sourceType, setSourceType] = useState('csv');
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
@@ -10,10 +10,10 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (sourceType === 'xero') {
+    if (sourceType === 'xero' && isXeroAuthenticated) {
       fetchCustomers();
     }
-  }, [sourceType]);
+  }, [sourceType, isXeroAuthenticated]);
 
   const fetchCustomers = async () => {
     try {
@@ -71,26 +71,28 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
 
   return (
     <div className="space-y-4">
-      <div className="flex space-x-4 mb-4">
-        <button
-          onClick={() => setSourceType('csv')}
-          className={`px-4 py-2 rounded-lg ${sourceType === 'csv' ? 
-            'bg-blue-600 text-white' : 
-            'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-        >
-          Upload CSV
-        </button>
-        <button
-          onClick={() => setSourceType('xero')}
-          className={`px-4 py-2 rounded-lg ${sourceType === 'xero' ? 
-            'bg-blue-600 text-white' : 
-            'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-        >
-          From Xero
-        </button>
-      </div>
+      {isXeroAuthenticated && (
+        <div className="flex space-x-4 mb-4">
+          <button
+            onClick={() => setSourceType('csv')}
+            className={`px-4 py-2 rounded-lg ${sourceType === 'csv' ? 
+              'bg-blue-600 text-white' : 
+              'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          >
+            Upload CSV
+          </button>
+          <button
+            onClick={() => setSourceType('xero')}
+            className={`px-4 py-2 rounded-lg ${sourceType === 'xero' ? 
+              'bg-blue-600 text-white' : 
+              'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+          >
+            From Xero
+          </button>
+        </div>
+      )}
 
-      {sourceType === 'csv' ? (
+      {sourceType === 'csv' || !isXeroAuthenticated ? (
         <div className="space-y-4">
           <FileUpload 
             onFileSelected={(file) => onFileSelected({ type: 'csv', file })} 
