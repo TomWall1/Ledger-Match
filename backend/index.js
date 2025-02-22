@@ -11,10 +11,18 @@ const app = express();
 
 // Centralized CORS configuration
 const corsOptions = {
-  origin: 'https://ledger-match.vercel.app',
+  origin: ['https://ledger-match.vercel.app', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'],
-  exposedHeaders: ['Content-Type'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'X-CSRF-Token',
+    'X-Auth-Token'
+  ],
+  exposedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   maxAge: 86400 // Cache preflight requests for 24 hours
 };
@@ -46,7 +54,8 @@ app.use('/test', testRoutes);
 
 // Mount other routes
 app.use('/auth', xeroRoutes);
-app.use('/process', processRoutes);
+app.use('/process-csv', processRoutes);
+app.use('/match-data', processRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -55,7 +64,8 @@ app.get('/', (req, res) => {
     endpoints: {
       test: '/test/upload',
       auth: '/auth',
-      process: '/process'
+      process: '/process-csv',
+      match: '/match-data'
     }
   });
 });
