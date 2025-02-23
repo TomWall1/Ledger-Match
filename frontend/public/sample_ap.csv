@@ -1,0 +1,4 @@
+transaction_number,transaction_type,amount,issue_date,due_date,status,reference
+2001,BILL,-1500.00,2024-01-01,2024-01-31,OPEN,BILL-2001
+2002,BILL,-2300.50,2024-01-02,2024-02-01,OPEN,BILL-2002
+2003,CREDIT_NOTE,500.00,2024-01-03,2024-02-02,OPEN,CN-2003
