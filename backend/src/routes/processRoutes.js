@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import iconv from 'iconv-lite';
 import { matchRecords } from '../utils/matching.js';
 
-const router = express.Router();
+export const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.post('/api/match', upload.fields([
@@ -64,5 +64,3 @@ router.post('/api/match', upload.fields([
 router.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
-
-export { router as default };
