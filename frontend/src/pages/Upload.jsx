@@ -1,14 +1,55 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FileUpload } from '../components/FileUpload';
 import DateFormatSelect from '../components/DateFormatSelect';
 
 const Upload = () => {
-  const navigate = useNavigate();
   const [files, setFiles] = useState({ ar: null, ap: null });
   const [dateFormats, setDateFormats] = useState({ ar: 'MM/DD/YYYY', ap: 'MM/DD/YYYY' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isXeroAuthenticated, setIsXeroAuthenticated] = useState(false);
+  const [xeroData, setXeroData] = useState(null);
+  const [sourceType, setSourceType] = useState('csv');
+
+  useEffect(() => {
+    checkXeroAuth();
+  }, []);
+
+  const checkXeroAuth = async () => {
+    try {
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+      const response = await fetch(`${apiUrl}/auth/xero/status`);
+      if (response.ok) {
+        const data = await response.json();
+        setIsXeroAuthenticated(data.isAuthenticated);
+      }
+    } catch (error) {
+      console.error('Error checking Xero auth status:', error);
+    }
+  };
+
+  const handleXeroSelect = async (customerId) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+      const response = await fetch(`${apiUrl}/auth/xero/customer/${customerId}/invoices`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch Xero data');
+      }
+
+      const data = await response.json();
+      setXeroData(data);
+      setFiles(prev => ({ ...prev, ar: { type: 'xero', data: data.invoices } }));
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleMatch = async () => {
     if (!files.ar || !files.ap) {
@@ -21,7 +62,14 @@ const Upload = () => {
 
     try {
       const formData = new FormData();
-      formData.append('company1File', files.ar);
+      
+      // Handle AR data (either CSV or Xero)
+      if (files.ar.type === 'csv') {
+        formData.append('company1File', files.ar.file);
+      } else if (files.ar.type === 'xero') {
+        formData.append('company1Data', JSON.stringify(files.ar.data));
+      }
+
       formData.append('company2File', files.ap);
       formData.append('dateFormat1', dateFormats.ar);
       formData.append('dateFormat2', dateFormats.ap);
@@ -37,7 +85,6 @@ const Upload = () => {
       }
 
       const results = await response.json();
-      // Store results in state/context and navigate to results page
       navigate('/results', { state: { results } });
     } catch (error) {
       setError(error.message || 'Error processing files');
@@ -71,22 +118,57 @@ const Upload = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h2 className="text-xl font-semibold mb-4 text-[#1B365D]">Accounts Receivable Data</h2>
+            {isXeroAuthenticated && (
+              <div className="mb-4">
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setSourceType('csv')}
+                    className={`flex-1 flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors
+                      ${sourceType === 'csv' 
+                        ? 'bg-[#1B365D] text-white' 
+                        : 'bg-white text-[#1B365D] border border-[#1B365D] hover:bg-[#1B365D] hover:bg-opacity-5'}`}
+                  >
+                    Upload CSV
+                  </button>
+                  <button
+                    onClick={() => setSourceType('xero')}
+                    className={`flex-1 flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors
+                      ${sourceType === 'xero' 
+                        ? 'bg-[#13B5EA] text-white' 
+                        : 'bg-white text-[#13B5EA] border border-[#13B5EA] hover:bg-[#13B5EA] hover:bg-opacity-5'}`}
+                  >
+                    From Xero
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="space-y-4">
-              <FileUpload
-                onFileSelected={(file) => setFiles(prev => ({ ...prev, ar: file }))}
-                accept=".csv"
-                label="Upload AR CSV"
-              />
-              {files.ar && (
-                <p className="text-sm text-green-600">
-                  ✓ {files.ar.name} uploaded
-                </p>
+              {(sourceType === 'csv' || !isXeroAuthenticated) ? (
+                <>
+                  <FileUpload
+                    onFileSelected={(file) => setFiles(prev => ({ ...prev, ar: { type: 'csv', file } }))}
+                    accept=".csv"
+                    label="Upload AR CSV"
+                  />
+                  {files.ar?.type === 'csv' && files.ar.file && (
+                    <p className="text-sm text-green-600">
+                      ✓ {files.ar.file.name} uploaded
+                    </p>
+                  )}
+                  <DateFormatSelect
+                    selectedFormat={dateFormats.ar}
+                    onChange={(format) => setDateFormats(prev => ({ ...prev, ar: format }))}
+                    label="Select Date Format"
+                  />
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-[#647789]">
+                    Select a customer to import their invoices
+                  </p>
+                  {/* Implement Xero customer selection here */}
+                </div>
               )}
-              <DateFormatSelect
-                selectedFormat={dateFormats.ar}
-                onChange={(format) => setDateFormats(prev => ({ ...prev, ar: format }))}
-                label="Select Date Format"
-              />
             </div>
           </div>
 
