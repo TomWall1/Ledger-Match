@@ -1,20 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FileUpload } from '../components/FileUpload';
 import DateFormatSelect from '../components/DateFormatSelect';
+import XeroCustomerSelect from '../components/XeroCustomerSelect';
 
 const Upload = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [files, setFiles] = useState({ ar: null, ap: null });
   const [dateFormats, setDateFormats] = useState({ ar: 'MM/DD/YYYY', ap: 'MM/DD/YYYY' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isXeroAuthenticated, setIsXeroAuthenticated] = useState(false);
-  const [xeroData, setXeroData] = useState(null);
   const [sourceType, setSourceType] = useState('csv');
 
   useEffect(() => {
     checkXeroAuth();
   }, []);
+
+  useEffect(() => {
+    // If coming from Xero auth, switch to Xero source type
+    if (location.state?.xeroEnabled) {
+      setSourceType('xero');
+    }
+  }, [location.state]);
 
   const checkXeroAuth = async () => {
     try {
@@ -29,26 +38,15 @@ const Upload = () => {
     }
   };
 
-  const handleXeroSelect = async (customerId) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/customer/${customerId}/invoices`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch Xero data');
+  const handleXeroSelect = (data) => {
+    setFiles(prev => ({
+      ...prev,
+      ar: {
+        type: 'xero',
+        data: data.invoices,
+        name: `Xero: ${data.customerName}`
       }
-
-      const data = await response.json();
-      setXeroData(data);
-      setFiles(prev => ({ ...prev, ar: { type: 'xero', data: data.invoices } }));
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
+    }));
   };
 
   const handleMatch = async () => {
@@ -118,6 +116,7 @@ const Upload = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h2 className="text-xl font-semibold mb-4 text-[#1B365D]">Accounts Receivable Data</h2>
+            
             {isXeroAuthenticated && (
               <div className="mb-4">
                 <div className="flex space-x-4">
@@ -128,6 +127,9 @@ const Upload = () => {
                         ? 'bg-[#1B365D] text-white' 
                         : 'bg-white text-[#1B365D] border border-[#1B365D] hover:bg-[#1B365D] hover:bg-opacity-5'}`}
                   >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                     Upload CSV
                   </button>
                   <button
@@ -137,11 +139,15 @@ const Upload = () => {
                         ? 'bg-[#13B5EA] text-white' 
                         : 'bg-white text-[#13B5EA] border border-[#13B5EA] hover:bg-[#13B5EA] hover:bg-opacity-5'}`}
                   >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                     From Xero
                   </button>
                 </div>
               </div>
             )}
+
             <div className="space-y-4">
               {(sourceType === 'csv' || !isXeroAuthenticated) ? (
                 <>
@@ -163,10 +169,12 @@ const Upload = () => {
                 </>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-[#647789]">
-                    Select a customer to import their invoices
-                  </p>
-                  {/* Implement Xero customer selection here */}
+                  <XeroCustomerSelect onCustomerSelect={handleXeroSelect} />
+                  {files.ar?.type === 'xero' && (
+                    <p className="text-sm text-green-600">
+                      ✓ {files.ar.name}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
