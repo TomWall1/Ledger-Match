@@ -1,7 +1,7 @@
 {
   "name": "ledger-match-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend service for Ledger Match application",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -12,8 +12,10 @@
   "dependencies": {
     "cors": "^2.8.5",
     "csv-parse": "^5.5.3",
+    "dayjs": "^1.11.10",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
+    "iconv-lite": "^0.6.3",
     "ioredis": "^5.3.2",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^3.3.2",
