@@ -1,0 +1,118 @@
+import React, { useState, useEffect } from 'react';
+
+const XeroCustomerSelect = ({ onCustomerSelect }) => {
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+      const response = await fetch(`${apiUrl}/auth/xero/customers`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch customers');
+      }
+
+      const data = await response.json();
+      setCustomers(data.customers || []);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      setError('Failed to load customers from Xero');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCustomerSelect = async (customer) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+      const response = await fetch(`${apiUrl}/auth/xero/customer/${customer.ContactID}/invoices`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch customer invoices');
+      }
+
+      const data = await response.json();
+      setSelectedCustomer(customer);
+      onCustomerSelect({ ...data, customerName: customer.Name });
+    } catch (error) {
+      setError('Failed to load customer invoices. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8 text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#13B5EA] mx-auto mb-4"></div>
+        <p className="text-[#647789]">
+          {selectedCustomer ? 'Loading invoices...' : 'Loading customers...'}
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <p className="text-red-700 mb-2">{error}</p>
+        <button 
+          onClick={fetchCustomers}
+          className="text-[#13B5EA] hover:underline flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+          </svg>
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (customers.length === 0) {
+    return (
+      <div className="p-8 text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-4 text-[#647789]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <p className="text-[#647789]">No customers found in your Xero account</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg divide-y divide-gray-200 bg-white overflow-hidden max-h-60 overflow-y-auto">
+      {customers.map(customer => (
+        <button
+          key={customer.ContactID}
+          className={`w-full text-left p-4 hover:bg-[#13B5EA] hover:bg-opacity-5 transition-colors
+            ${selectedCustomer?.ContactID === customer.ContactID ? 'bg-[#13B5EA] bg-opacity-10' : ''}`}
+          onClick={() => handleCustomerSelect(customer)}
+        >
+          <div className="font-medium text-[#1B365D]">{customer.Name}</div>
+          <div className="text-sm text-[#647789] mt-1">
+            Outstanding Balance: {customer.Balances?.AccountsReceivable?.Outstanding
+              ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+                  .format(customer.Balances.AccountsReceivable.Outstanding)
+              : '$0.00'
+            }
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+};
+
+export default XeroCustomerSelect;
