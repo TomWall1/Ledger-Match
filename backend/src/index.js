@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import xeroRoutes from './routes/xeroAuth.js';
-import processRoutes from './routes/processRoutes.js';
+import { router as processRoutes } from './routes/processRoutes.js';
 import testRoutes from './routes/test.js';
 
 dotenv.config();
