@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useXero } from '../context/XeroContext';
 
 const XeroCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
+  const { setIsAuthenticated, checkAuth } = useXero();
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -24,8 +26,15 @@ const XeroCallback = () => {
           throw new Error('Failed to complete authentication');
         }
 
-        // Redirect to upload page with Xero enabled
-        navigate('/upload', { state: { xeroEnabled: true } });
+        // Verify authentication status
+        const isAuthenticated = await checkAuth();
+        if (isAuthenticated) {
+          setIsAuthenticated(true);
+          // Redirect to upload page with Xero enabled
+          navigate('/upload', { state: { xeroEnabled: true } });
+        } else {
+          throw new Error('Authentication verification failed');
+        }
       } catch (error) {
         console.error('Xero callback error:', error);
         setError(error.message);
@@ -33,7 +42,7 @@ const XeroCallback = () => {
     };
 
     handleCallback();
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, setIsAuthenticated, checkAuth]);
 
   if (error) {
     return (
@@ -47,10 +56,10 @@ const XeroCallback = () => {
             <p className="text-center">{error}</p>
           </div>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/upload')}
             className="w-full bg-[#1B365D] text-white py-2 px-4 rounded-lg hover:bg-opacity-90 transition-colors"
           >
-            Return to Home
+            Return to Upload
           </button>
         </div>
       </div>
