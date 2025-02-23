@@ -1,17 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useXero } from '../context/XeroContext';
 
 const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { checkAuth } = useXero();
+
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      const isAuthenticated = await checkAuth();
+      if (isAuthenticated) {
+        navigate('/upload', { state: { xeroEnabled: true } });
+      }
+    };
+    checkAuthentication();
+  }, [checkAuth, navigate]);
 
   const handleConnect = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const response = await fetch('https://ledger-match-backend.onrender.com/auth/xero', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+      const response = await fetch(`${apiUrl}/auth/xero`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -37,35 +50,21 @@ const XeroAuth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-[#1B365D] text-white py-4 shadow-lg">
-        <div className="container mx-auto px-4">
-          <h1 className="text-2xl font-bold flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-            </svg>
-            LedgerLink
-          </h1>
-        </div>
-      </nav>
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="p-8">
             <div className="flex items-center justify-center mb-6">
-              <img 
-                src="https://www.xero.com/content/dam/xero/pilot-images/logo/x_secondary_blue_RGB.svg" 
-                alt="Xero logo" 
-                className="h-12" 
-              />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-[#13B5EA]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
             </div>
             
             <h2 className="text-2xl font-bold text-center text-[#1B365D] mb-2">
               Connect to Xero
             </h2>
             <p className="text-[#647789] text-center mb-8">
-              Connect your Xero account to import your accounting data
+              Connect your Xero account to import your accounts receivable data
             </p>
 
             {error && (
@@ -89,14 +88,7 @@ const XeroAuth = () => {
                   Connecting to Xero...
                 </>
               ) : (
-                <>
-                  <img 
-                    src="https://www.xero.com/content/dam/xero/pilot-images/logo/x_secondary_blue_RGB.svg" 
-                    alt="Xero logo" 
-                    className="w-5 h-5 mr-2 filter brightness-0 invert" 
-                  />
-                  Connect with Xero
-                </>
+                'Connect with Xero'
               )}
             </button>
 
@@ -120,7 +112,7 @@ const XeroAuth = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                   </svg>
-                  CSV Upload
+                  Back to Upload
                 </a>
               </div>
             </div>
