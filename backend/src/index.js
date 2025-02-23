@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import xeroRoutes from './routes/xeroAuth.js';
 import { router as processRoutes } from './routes/processRoutes.js';
 import testRoutes from './routes/test.js';
+import xeroRoutes from './routes/xeroAuth.js';
 
 dotenv.config();
 
@@ -11,9 +11,9 @@ const app = express();
 
 // Centralized CORS configuration
 const corsOptions = {
-  origin: 'https://ledger-match.vercel.app',
+  origin: ['https://ledger-match.vercel.app', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
   exposedHeaders: ['Content-Type'],
   credentials: true,
   maxAge: 86400 // Cache preflight requests for 24 hours
@@ -34,17 +34,14 @@ app.use((req, res, next) => {
   console.log('Request received:', {
     method: req.method,
     path: req.path,
-    headers: req.headers,
     query: req.query,
-    body: req.body
+    body: Object.keys(req.body).length > 0 ? '(body present)' : '(no body)'
   });
   next();
 });
 
-// Mount test routes first
+// Mount routes
 app.use('/test', testRoutes);
-
-// Mount other routes
 app.use('/auth', xeroRoutes);
 app.use('/', processRoutes);
 
@@ -54,8 +51,8 @@ app.get('/', (req, res) => {
     status: 'API is running',
     routes: {
       test: '/test/upload',
-      auth: '/auth',
-      process: '/process-csv'
+      auth: '/auth/xero',
+      match: '/api/match'
     }
   });
 });
@@ -63,18 +60,13 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Global error handler:', {
-    error: err,
     message: err.message,
-    code: err.code,
-    field: err.field,
-    storageErrors: err.storageErrors,
     stack: err.stack
   });
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
     path: req.path,
-    timestamp: new Date().toISOString(),
-    details: JSON.stringify(err, Object.getOwnPropertyNames(err))
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -84,8 +76,8 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Routes set up:', {
     test: '/test/upload',
-    auth: '/auth',
-    process: '/process-csv'
+    auth: '/auth/xero',
+    match: '/api/match'
   });
   console.log('Environment:', {
     node_env: process.env.NODE_ENV,

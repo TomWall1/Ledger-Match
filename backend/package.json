@@ -5,8 +5,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "install-deps": "npm install dayjs@1.11.10 iconv-lite@0.6.3",
-    "start": "npm run install-deps && node src/index.js",
+    "start": "node src/index.js",
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
