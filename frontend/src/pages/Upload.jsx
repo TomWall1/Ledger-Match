@@ -20,7 +20,7 @@ const Upload = () => {
 
   useEffect(() => {
     // Check auth status only once on component mount or when location state changes
-    if (!authCheckPerformed.current || location.state?.xeroEnabled) {
+    if (!authCheckPerformed.current) {
       const refreshAuthStatus = async () => {
         // Check local storage for auth state first to prevent unnecessary API calls
         const storedAuth = localStorage.getItem('xeroAuth') === 'true';
@@ -36,12 +36,19 @@ const Upload = () => {
         }
         
         // Only call API if localStorage doesn't have the state
-        const serverAuth = await checkAuth();
-        setLocalAuthState(serverAuth || isAuthenticated || storedAuth);
-        
-        // If authenticated and coming from Xero callback, switch to Xero source type
-        if ((serverAuth || isAuthenticated || storedAuth) && location.state?.xeroEnabled) {
-          setSourceType('xero');
+        if (!storedAuth && !isAuthenticated) {
+          const serverAuth = await checkAuth();
+          setLocalAuthState(serverAuth);
+          
+          // If authenticated and coming from Xero callback, switch to Xero source type
+          if (serverAuth && location.state?.xeroEnabled) {
+            setSourceType('xero');
+          }
+        } else {
+          setLocalAuthState(storedAuth || isAuthenticated);
+          if ((storedAuth || isAuthenticated) && location.state?.xeroEnabled) {
+            setSourceType('xero');
+          }
         }
         
         authCheckPerformed.current = true;
