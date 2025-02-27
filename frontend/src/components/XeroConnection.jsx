@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import NavHeader from './NavHeader';
 
 const XeroConnection = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -68,8 +69,9 @@ const XeroConnection = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <NavHeader />
+      <div className="max-w-7xl mx-auto p-6">
         <h1 className="text-3xl font-bold text-[#1B365D] mb-8">Connect to Xero</h1>
         
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
