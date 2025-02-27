@@ -31,13 +31,8 @@ export const XeroProvider = ({ children }) => {
       }
       
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/status`, {
-        // Add cache control to prevent excessive API calls
-        cache: 'no-cache',
-        headers: {
-          'Pragma': 'no-cache'
-        }
-      });
+      // Removed cache-control headers that were causing CORS issues
+      const response = await fetch(`${apiUrl}/auth/xero/status`);
       
       if (response.ok) {
         const data = await response.json();
