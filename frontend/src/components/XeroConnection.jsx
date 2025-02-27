@@ -1,30 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NavHeader from './NavHeader';
+import { useXero } from '../context/XeroContext';
 
 const XeroConnection = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { isAuthenticated, checkAuth } = useXero();
 
   useEffect(() => {
-    checkConnectionStatus();
-  }, []);
-
-  const checkConnectionStatus = async () => {
-    try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/status`);
-      if (response.ok) {
-        const data = await response.json();
-        setIsConnected(data.isAuthenticated);
+    // Check the authentication status when component mounts
+    const checkConnection = async () => {
+      setIsLoading(true);
+      try {
+        // Use the context's checkAuth function to verify status with the server
+        const authStatus = await checkAuth();
+        setIsConnected(authStatus || isAuthenticated);
+      } catch (error) {
+        console.error('Error checking connection:', error);
+        setError('Failed to check Xero connection status');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error checking Xero status:', error);
-      setError('Failed to check Xero connection status');
-    }
-  };
+    };
+
+    checkConnection();
+  }, [checkAuth, isAuthenticated]);
 
   const handleConnect = async () => {
     try {
@@ -58,14 +61,22 @@ const XeroConnection = () => {
         throw new Error('Failed to disconnect from Xero');
       }
 
+      // Clear local authentication state
+      localStorage.removeItem('xeroAuth');
       setIsConnected(false);
-      navigate('/');
+      
+      // Refresh the page to ensure all components update
+      window.location.reload();
     } catch (error) {
       console.error('Error disconnecting from Xero:', error);
       setError('Failed to disconnect from Xero. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleContinue = () => {
+    navigate('/upload', { state: { xeroEnabled: true } });
   };
 
   return (
@@ -120,13 +131,21 @@ const XeroConnection = () => {
                   </svg>
                   Connected to Xero
                 </div>
-                <button
-                  onClick={handleDisconnect}
-                  disabled={isLoading}
-                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${isLoading ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white font-medium`}
-                >
-                  {isLoading ? 'Disconnecting...' : 'Disconnect from Xero'}
-                </button>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={handleContinue}
+                    className="flex items-center px-6 py-3 rounded-lg transition-colors bg-[#00A4B4] hover:bg-[#008999] text-white font-medium"
+                  >
+                    Continue to Upload
+                  </button>
+                  <button
+                    onClick={handleDisconnect}
+                    disabled={isLoading}
+                    className={`flex items-center px-4 py-2 rounded-lg transition-colors ${isLoading ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white font-medium`}
+                  >
+                    {isLoading ? 'Disconnecting...' : 'Disconnect'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
