@@ -9,7 +9,7 @@ import Header from '../components/Header';
 const Upload = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, loading } = useXero();
+  const { isAuthenticated, loading, checkAuth } = useXero();
   const [files, setFiles] = useState({ ar: null, ap: null });
   const [dateFormats, setDateFormats] = useState({ ar: 'MM/DD/YYYY', ap: 'MM/DD/YYYY' });
   const [isLoading, setIsLoading] = useState(false);
@@ -18,15 +18,27 @@ const Upload = () => {
   const [localAuthState, setLocalAuthState] = useState(false);
 
   useEffect(() => {
-    // Check local storage for auth state
-    const storedAuth = localStorage.getItem('xeroAuth') === 'true';
-    setLocalAuthState(storedAuth || isAuthenticated);
+    // Check auth status on component mount and when location changes
+    const refreshAuthStatus = async () => {
+      // Check server auth status
+      const serverAuth = await checkAuth();
+      // Check local storage for auth state
+      const storedAuth = localStorage.getItem('xeroAuth') === 'true';
+      // Use either source of truth
+      const isAuth = serverAuth || storedAuth || isAuthenticated;
+      
+      console.log('Auth status check:', { serverAuth, storedAuth, isAuthenticated, isAuth });
+      setLocalAuthState(isAuth);
+      
+      // If authenticated and location state has xeroEnabled or we're coming from Xero callback,
+      // switch to xero source type
+      if (isAuth && (location.state?.xeroEnabled || location.pathname.includes('/auth/xero'))) {
+        setSourceType('xero');
+      }
+    };
     
-    // If location state has xeroEnabled, switch to xero source type
-    if ((storedAuth || isAuthenticated) && location.state?.xeroEnabled) {
-      setSourceType('xero');
-    }
-  }, [isAuthenticated, location.state]);
+    refreshAuthStatus();
+  }, [isAuthenticated, location, checkAuth]);
 
   const handleXeroSelect = (data) => {
     setFiles(prev => ({
