@@ -16,9 +16,19 @@ export const XeroProvider = ({ children }) => {
       setLoading(true);
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
       const response = await fetch(`${apiUrl}/auth/xero/status`);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Xero authentication status:', data);
         setIsAuthenticated(data.isAuthenticated);
+        
+        // Also update localStorage to keep state consistent
+        if (data.isAuthenticated) {
+          localStorage.setItem('xeroAuth', 'true');
+        } else {
+          localStorage.removeItem('xeroAuth');
+        }
+        
         return data.isAuthenticated;
       }
       return false;
