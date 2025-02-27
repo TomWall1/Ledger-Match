@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useXero } from '../context/XeroContext';
+import Header from './Header';
 
 const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -51,13 +52,16 @@ const XeroAuth = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Header />
       <div className="max-w-7xl mx-auto p-6">
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="p-8">
             <div className="flex items-center justify-center mb-6">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-[#13B5EA]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
+              <div className="flex items-center justify-center p-4 bg-[#13B5EA] bg-opacity-10 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" className="text-[#13B5EA]">
+                  <path fill="currentColor" d="M18 3a3 3 0 00-3 3v12a3 3 0 003 3 3 3 0 003-3 3 3 0 00-3-3H6a3 3 0 00-3 3 3 3 0 003 3 3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3h12a3 3 0 003-3 3 3 0 00-3-3z"/>
+                </svg>
+              </div>
             </div>
             
             <h2 className="text-2xl font-bold text-center text-[#1B365D] mb-2">
@@ -105,15 +109,15 @@ const XeroAuth = () => {
               </div>
 
               <div className="mt-6">
-                <a
-                  href="/"
+                <Link
+                  to="/upload"
                   className="w-full flex justify-center items-center py-3 px-4 border border-gray-200 rounded-lg font-medium text-[#647789] hover:bg-gray-50 transition-colors"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                   </svg>
                   Back to Upload
-                </a>
+                </Link>
               </div>
             </div>
           </div>
