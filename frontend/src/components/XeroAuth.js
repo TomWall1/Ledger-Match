@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useXero } from '../context/XeroContext';
-import Header from './Header';
+import Header from '../components/Header';
 
 const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);

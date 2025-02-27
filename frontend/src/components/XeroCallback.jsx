@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useXero } from '../context/XeroContext';
-import Header from './Header';
+import Header from '../components/Header';
 
 const XeroCallback = () => {
   const [searchParams] = useSearchParams();
