@@ -15,10 +15,13 @@ const Upload = () => {
   const [error, setError] = useState(null);
   const [sourceType, setSourceType] = useState('csv');
   const [initialized, setInitialized] = useState(false);
+  const [localAuthState, setLocalAuthState] = useState(false);
 
   useEffect(() => {
     const init = async () => {
       const isAuth = await checkAuth();
+      setLocalAuthState(isAuth);
+      
       if (!initialized) {
         // If already authenticated and coming back from Xero auth, set source type to xero
         if (isAuth && (location.state?.xeroEnabled)) {
@@ -113,7 +116,7 @@ const Upload = () => {
           <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h2 className="text-xl font-semibold mb-4 text-[#1B365D]">Accounts Receivable Data</h2>
             
-            {isAuthenticated && (
+            {localAuthState && (
               <div className="mb-4">
                 <div className="flex space-x-4">
                   <button
@@ -144,20 +147,8 @@ const Upload = () => {
               </div>
             )}
 
-            {!isAuthenticated && sourceType === 'xero' && (
-              <div className="text-center mb-6 p-4 bg-[#13B5EA] bg-opacity-5 rounded-lg">
-                <p className="text-[#13B5EA] mb-4">Connect to Xero to import your accounts receivable data</p>
-                <button
-                  onClick={handleConnectXero}
-                  className="bg-[#13B5EA] text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors"
-                >
-                  Connect to Xero
-                </button>
-              </div>
-            )}
-
             <div className="space-y-4">
-              {(sourceType === 'csv' || !isAuthenticated) ? (
+              {sourceType === 'csv' || !localAuthState ? (
                 <>
                   <FileUpload
                     onFileSelected={(file) => setFiles(prev => ({ ...prev, ar: { type: 'csv', file } }))}
@@ -175,7 +166,7 @@ const Upload = () => {
                     label="Select Date Format"
                   />
                 </>
-              ) : (
+              ) : localAuthState && sourceType === 'xero' ? (
                 <div className="space-y-4">
                   <XeroCustomerSelect onCustomerSelect={handleXeroSelect} />
                   {files.ar?.type === 'xero' && (
@@ -183,6 +174,16 @@ const Upload = () => {
                       ✓ {files.ar.name}
                     </p>
                   )}
+                </div>
+              ) : (
+                <div className="text-center mb-6 p-4 bg-[#13B5EA] bg-opacity-5 rounded-lg">
+                  <p className="text-[#13B5EA] mb-4">Connect to Xero to import your accounts receivable data</p>
+                  <button
+                    onClick={handleConnectXero}
+                    className="bg-[#13B5EA] text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors"
+                  >
+                    Connect to Xero
+                  </button>
                 </div>
               )}
             </div>
