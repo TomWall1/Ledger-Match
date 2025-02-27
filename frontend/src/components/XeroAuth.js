@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useXero } from '../context/XeroContext';
-import Header from '../components/Header';
+import NavHeader from './NavHeader';
 
 const XeroAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -52,7 +52,7 @@ const XeroAuth = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <NavHeader />
       <div className="max-w-7xl mx-auto p-6">
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="p-8">
