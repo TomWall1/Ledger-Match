@@ -20,9 +20,17 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
       dateFormat2
     });
 
+    // Log some sample data for debugging
+    console.log('Company1 sample data:', company1Data.slice(0, 2));
+    console.log('Company2 sample data:', company2Data.slice(0, 2));
+
     // Normalize data
     const normalizedCompany1 = normalizeData(company1Data, dateFormat1);
     const normalizedCompany2 = normalizeData(company2Data, dateFormat2);
+
+    // Log normalized data for debugging
+    console.log('Normalized Company1 sample:', normalizedCompany1.slice(0, 2));
+    console.log('Normalized Company2 sample:', normalizedCompany2.slice(0, 2));
 
     const perfectMatches = [];
     const mismatches = [];
@@ -34,6 +42,8 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
     // Calculate totals
     const company1Total = calculateTotal(normalizedCompany1);
     const company2Total = calculateTotal(normalizedCompany2);
+
+    console.log('Company totals:', { company1Total, company2Total });
 
     // Find matches
     for (const item1 of normalizedCompany1) {
@@ -74,16 +84,57 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
   }
 };
 
+// Safely convert a value to number, handling various formats
+const parseAmount = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+  
+  // If already a number, return it
+  if (typeof value === 'number') {
+    return value;
+  }
+  
+  // Convert string to number, handling different formats
+  if (typeof value === 'string') {
+    // Remove currency symbols, commas, and other non-numeric characters except for decimal point and minus sign
+    const cleanValue = value.replace(/[^\d.-]/g, '');
+    const numValue = parseFloat(cleanValue);
+    return isNaN(numValue) ? 0 : numValue;
+  }
+  
+  return 0;
+};
+
 const normalizeData = (data, dateFormat) => {
-  return data.map(record => ({
-    transactionNumber: record.transaction_number?.toString().trim(),
-    type: record.transaction_type?.toString().trim(),
-    amount: parseFloat(record.amount) || 0,
-    date: parseDate(record.issue_date, dateFormat),
-    dueDate: parseDate(record.due_date, dateFormat),
-    status: record.status?.toString().trim(),
-    reference: record.reference?.toString().trim()
-  }));
+  return data.map(record => {
+    // Debug logging to understand the input format
+    console.log('Record before normalization:', {
+      transactionNumber: record.transaction_number,
+      amount: record.amount,
+      type: record.transaction_type
+    });
+    
+    // Normalize the data
+    const normalized = {
+      transactionNumber: record.transaction_number?.toString().trim(),
+      type: record.transaction_type?.toString().trim(),
+      amount: parseAmount(record.amount),
+      date: parseDate(record.issue_date, dateFormat),
+      dueDate: parseDate(record.due_date, dateFormat),
+      status: record.status?.toString().trim(),
+      reference: record.reference?.toString().trim()
+    };
+    
+    // Debug logging to see the result
+    console.log('Normalized record:', { 
+      transactionNumber: normalized.transactionNumber,
+      amount: normalized.amount,
+      type: normalized.type
+    });
+    
+    return normalized;
+  });
 };
 
 const parseDate = (dateString, format) => {
@@ -93,7 +144,10 @@ const parseDate = (dateString, format) => {
 };
 
 const calculateTotal = (data) => {
-  return data.reduce((sum, record) => sum + record.amount, 0);
+  return data.reduce((sum, record) => {
+    const amount = record.amount || 0;
+    return sum + amount;
+  }, 0);
 };
 
 const calculateVariance = (total1, total2) => {
@@ -102,16 +156,40 @@ const calculateVariance = (total1, total2) => {
 
 const findPotentialMatches = (item1, company2Data) => {
   return company2Data.filter(item2 => {
-    // Match on transaction number or reference
-    return (item1.transactionNumber === item2.transactionNumber) ||
-           (item1.reference === item2.reference);
+    // Basic case: exact transaction number match
+    if (item1.transactionNumber && item2.transactionNumber && 
+        item1.transactionNumber === item2.transactionNumber) {
+      return true;
+    }
+    
+    // Alternative: reference match if both have references
+    if (item1.reference && item2.reference && 
+        item1.reference === item2.reference) {
+      return true;
+    }
+    
+    return false;
   });
 };
 
 const isExactMatch = (item1, item2) => {
-  return item1.amount === -item2.amount && // One should be positive, one negative
-         item1.transactionNumber === item2.transactionNumber &&
-         item1.reference === item2.reference;
+  // We must have transaction numbers or references that match
+  const idMatch = (item1.transactionNumber && item2.transactionNumber && 
+                  item1.transactionNumber === item2.transactionNumber) ||
+                 (item1.reference && item2.reference && 
+                  item1.reference === item2.reference);
+  
+  if (!idMatch) return false;
+  
+  // For financial data, one should be positive (receivable) and one negative (payable)
+  // We'll check if they're similar in absolute value but opposite in sign
+  const amount1 = item1.amount || 0;
+  const amount2 = item2.amount || 0;
+  
+  // Check if the amounts are opposite (with some small tolerance for rounding)
+  const amountsMatch = Math.abs(amount1 + amount2) < 0.01;
+  
+  return idMatch && amountsMatch;
 };
 
 const findBestMatch = (item1, potentialMatches) => {
@@ -128,14 +206,18 @@ const findBestMatch = (item1, potentialMatches) => {
 const calculateMatchScore = (item1, item2) => {
   let score = 0;
 
-  // Amount match (accounting for sign)
-  if (item1.amount === -item2.amount) score += 3;
+  // Amount match (accounting for sign with tolerance)
+  const amount1 = item1.amount || 0;
+  const amount2 = item2.amount || 0;
+  if (Math.abs(amount1 + amount2) < 0.01) score += 3;
 
   // Transaction number match
-  if (item1.transactionNumber === item2.transactionNumber) score += 2;
+  if (item1.transactionNumber && item2.transactionNumber && 
+      item1.transactionNumber === item2.transactionNumber) score += 2;
 
   // Reference match
-  if (item1.reference === item2.reference) score += 2;
+  if (item1.reference && item2.reference && 
+      item1.reference === item2.reference) score += 2;
 
   // Date proximity (if dates are valid)
   if (item1.date && item2.date) {
