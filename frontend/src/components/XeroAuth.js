@@ -25,7 +25,8 @@ const XeroAuth = () => {
     
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero`, {
+      // Updated to use the correct endpoint for Xero connection
+      const response = await fetch(`${apiUrl}/auth/xero/connect`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -37,8 +38,9 @@ const XeroAuth = () => {
       }
 
       const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
+      // Updated to use the authUrl property as returned by the backend
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
       } else {
         throw new Error('No authorization URL received');
       }
