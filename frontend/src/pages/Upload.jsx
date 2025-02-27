@@ -3,40 +3,32 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FileUpload } from '../components/FileUpload';
 import DateFormatSelect from '../components/DateFormatSelect';
 import XeroCustomerSelect from '../components/XeroCustomerSelect';
+import { useXero } from '../context/XeroContext';
 
 const Upload = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAuthenticated, checkAuth } = useXero();
   const [files, setFiles] = useState({ ar: null, ap: null });
   const [dateFormats, setDateFormats] = useState({ ar: 'MM/DD/YYYY', ap: 'MM/DD/YYYY' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [isXeroAuthenticated, setIsXeroAuthenticated] = useState(false);
   const [sourceType, setSourceType] = useState('csv');
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    checkXeroAuth();
-  }, []);
-
-  useEffect(() => {
-    // If coming from Xero auth, switch to Xero source type
-    if (location.state?.xeroEnabled) {
-      setSourceType('xero');
-    }
-  }, [location.state]);
-
-  const checkXeroAuth = async () => {
-    try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/status`);
-      if (response.ok) {
-        const data = await response.json();
-        setIsXeroAuthenticated(data.isAuthenticated);
+    const init = async () => {
+      const isAuth = await checkAuth();
+      if (!initialized) {
+        // If already authenticated and coming back from Xero auth, set source type to xero
+        if (isAuth && (location.state?.xeroEnabled)) {
+          setSourceType('xero');
+        }
+        setInitialized(true);
       }
-    } catch (error) {
-      console.error('Error checking Xero auth status:', error);
-    }
-  };
+    };
+    init();
+  }, [checkAuth, initialized, location.state]);
 
   const handleXeroSelect = (data) => {
     setFiles(prev => ({
@@ -91,6 +83,10 @@ const Upload = () => {
     }
   };
 
+  const handleConnectXero = () => {
+    navigate('/auth/xero');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -117,7 +113,7 @@ const Upload = () => {
           <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h2 className="text-xl font-semibold mb-4 text-[#1B365D]">Accounts Receivable Data</h2>
             
-            {isXeroAuthenticated && (
+            {isAuthenticated && (
               <div className="mb-4">
                 <div className="flex space-x-4">
                   <button
@@ -148,8 +144,20 @@ const Upload = () => {
               </div>
             )}
 
+            {!isAuthenticated && sourceType === 'xero' && (
+              <div className="text-center mb-6 p-4 bg-[#13B5EA] bg-opacity-5 rounded-lg">
+                <p className="text-[#13B5EA] mb-4">Connect to Xero to import your accounts receivable data</p>
+                <button
+                  onClick={handleConnectXero}
+                  className="bg-[#13B5EA] text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors"
+                >
+                  Connect to Xero
+                </button>
+              </div>
+            )}
+
             <div className="space-y-4">
-              {(sourceType === 'csv' || !isXeroAuthenticated) ? (
+              {(sourceType === 'csv' || !isAuthenticated) ? (
                 <>
                   <FileUpload
                     onFileSelected={(file) => setFiles(prev => ({ ...prev, ar: { type: 'csv', file } }))}
