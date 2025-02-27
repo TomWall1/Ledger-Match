@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 
 const XeroContext = createContext();
 
@@ -7,10 +7,15 @@ export const XeroProvider = ({ children }) => {
   const [customerData, setCustomerData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(false);
+  // Use a ref to track if we've already performed the initial check
+  const initialCheckDone = useRef(false);
 
   useEffect(() => {
-    // Initial auth check
-    checkAuth();
+    // Only do the initial auth check once
+    if (!initialCheckDone.current) {
+      initialCheckDone.current = true;
+      checkAuth();
+    }
   }, []);
 
   const checkAuth = async () => {
@@ -30,25 +35,39 @@ export const XeroProvider = ({ children }) => {
         return true;
       }
       
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      // Removed cache-control headers that were causing CORS issues
-      const response = await fetch(`${apiUrl}/auth/xero/status`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Xero authentication status:', data);
+      // Only call the API if we don't have the auth state in localStorage
+      try {
+        const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
         
-        setIsAuthenticated(data.isAuthenticated);
+        const response = await fetch(`${apiUrl}/auth/xero/status`, {
+          signal: controller.signal
+        });
         
-        // Also update localStorage to keep state consistent
-        if (data.isAuthenticated) {
-          localStorage.setItem('xeroAuth', 'true');
-        } else {
-          localStorage.removeItem('xeroAuth');
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Xero authentication status:', data);
+          
+          setIsAuthenticated(data.isAuthenticated);
+          
+          // Also update localStorage to keep state consistent
+          if (data.isAuthenticated) {
+            localStorage.setItem('xeroAuth', 'true');
+          } else {
+            localStorage.removeItem('xeroAuth');
+          }
+          
+          return data.isAuthenticated;
         }
-        
-        return data.isAuthenticated;
+      } catch (error) {
+        // If the API call fails (e.g., timeout), use the localStorage value
+        console.error('Error fetching auth status:', error);
+        return storedAuth;
       }
+      
       return false;
     } catch (error) {
       console.error('Error checking Xero auth:', error);
