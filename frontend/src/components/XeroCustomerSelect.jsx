@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const XeroCustomerSelect = ({ onCustomerSelect }) => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchCustomers();
@@ -15,9 +17,21 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
       setLoading(true);
       setError(null);
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/customers`);
+      const response = await fetch(`${apiUrl}/auth/xero/customers`, {
+        // Add cache control to prevent excessive API calls
+        cache: 'no-cache',
+        headers: {
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
+        // Handle 401 Unauthorized specifically
+        if (response.status === 401) {
+          // Clear authentication state and redirect to reconnect
+          localStorage.removeItem('xeroAuth');
+          throw new Error('Your Xero session has expired. Please reconnect.');
+        }
         throw new Error('Failed to fetch customers');
       }
 
@@ -25,10 +39,16 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
       setCustomers(data.customers || []);
     } catch (error) {
       console.error('Error fetching customers:', error);
-      setError('Failed to load customers from Xero');
+      setError('Failed to load customers from Xero: ' + error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReconnect = () => {
+    // Clear auth state and redirect to Xero auth
+    localStorage.removeItem('xeroAuth');
+    navigate('/auth/xero');
   };
 
   const handleCustomerSelect = async (customer) => {
@@ -37,9 +57,21 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
       setError(null);
       
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/customer/${customer.ContactID}/invoices`);
+      const response = await fetch(`${apiUrl}/auth/xero/customer/${customer.ContactID}/invoices`, {
+        // Add cache control to prevent excessive API calls
+        cache: 'no-cache',
+        headers: {
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
+        // Handle 401 Unauthorized specifically
+        if (response.status === 401) {
+          // Clear authentication state and redirect to reconnect
+          localStorage.removeItem('xeroAuth');
+          throw new Error('Your Xero session has expired. Please reconnect.');
+        }
         throw new Error('Failed to fetch customer invoices');
       }
 
@@ -47,7 +79,7 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
       setSelectedCustomer(customer);
       onCustomerSelect({ ...data, customerName: customer.Name });
     } catch (error) {
-      setError('Failed to load customer invoices. Please try again.');
+      setError(error.message || 'Failed to load customer invoices. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -65,18 +97,29 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
   }
 
   if (error) {
+    const isAuthError = error.includes('session has expired');
+    
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
         <p className="text-red-700 mb-2">{error}</p>
-        <button 
-          onClick={fetchCustomers}
-          className="text-[#13B5EA] hover:underline flex items-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-          </svg>
-          Try Again
-        </button>
+        {isAuthError ? (
+          <button 
+            onClick={handleReconnect}
+            className="bg-[#13B5EA] text-white px-4 py-2 mt-2 rounded-lg hover:bg-opacity-90 transition-colors"
+          >
+            Reconnect to Xero
+          </button>
+        ) : (
+          <button 
+            onClick={fetchCustomers}
+            className="text-[#13B5EA] hover:underline flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+            </svg>
+            Try Again
+          </button>
+        )}
       </div>
     );
   }
