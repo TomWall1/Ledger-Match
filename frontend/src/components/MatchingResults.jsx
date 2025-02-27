@@ -51,6 +51,14 @@ const MatchingResults = ({ matchResults }) => {
     return isNaN(amount) ? 0 : amount;
   };
 
+  // Calculate difference between two amounts
+  const calculateDifference = (amount1, amount2) => {
+    const value1 = parseFloat(amount1) || 0;
+    const value2 = parseFloat(amount2) || 0;
+    // Calculate the absolute difference between the amounts
+    return Math.abs(value1 - Math.abs(value2));
+  };
+
   // Calculate total amounts for each category with safe accessors
   const perfectMatchAmount = safePerfectMatches.reduce((sum, match) => {
     const amount = match && match.company1 ? calculateAmount(match.company1) : 0;
@@ -117,7 +125,7 @@ const MatchingResults = ({ matchResults }) => {
         </div>
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           <h3 className="text-lg font-semibold mb-2 text-[#1B365D]">Variance</h3>
-          <p className={`text-3xl font-bold ${Number(safeTotals.variance) === 0 ? 'text-[#7BDCB5]' : 'text-red-500'}`}>
+          <p className={`text-3xl font-bold ${Math.abs(parseFloat(safeTotals.variance)) < 0.01 ? 'text-[#7BDCB5]' : 'text-red-500'}`}>
             {formatCurrency(safeTotals.variance)}
           </p>
         </div>
@@ -191,15 +199,22 @@ const MatchingResults = ({ matchResults }) => {
           <h2 className="text-xl font-semibold text-[#1B365D]">Mismatches ({safeMismatches.length})</h2>
         </div>
         <ResultTable
-          data={safeMismatches.map(mismatch => ({
-            'Transaction #': mismatch?.company1?.transactionNumber || mismatch?.company2?.transactionNumber || 'N/A',
-            'Type': mismatch?.company1?.type || mismatch?.company2?.type || 'N/A',
-            'Receivable Amount': formatCurrency(mismatch?.company1?.amount || 0),
-            'Payable Amount': formatCurrency(mismatch?.company2?.amount || 0),
-            'Difference': formatCurrency((mismatch?.company1?.amount || 0) + (mismatch?.company2?.amount || 0)),
-            'Date': formatDate(mismatch?.company1?.date || mismatch?.company2?.date),
-            'Status': mismatch?.company1?.status || mismatch?.company2?.status || 'N/A'
-          }))}
+          data={safeMismatches.map(mismatch => {
+            const receivableAmount = mismatch?.company1?.amount || 0;
+            const payableAmount = mismatch?.company2?.amount || 0;
+            // Calculate difference as the absolute difference between the amounts
+            const difference = Math.abs(Math.abs(receivableAmount) - Math.abs(payableAmount));
+            
+            return {
+              'Transaction #': mismatch?.company1?.transactionNumber || mismatch?.company2?.transactionNumber || 'N/A',
+              'Type': mismatch?.company1?.type || mismatch?.company2?.type || 'N/A',
+              'Receivable Amount': formatCurrency(receivableAmount),
+              'Payable Amount': formatCurrency(payableAmount),
+              'Difference': formatCurrency(difference),
+              'Date': formatDate(mismatch?.company1?.date || mismatch?.company2?.date),
+              'Status': mismatch?.company1?.status || mismatch?.company2?.status || 'N/A'
+            };
+          })}
           columns={['Transaction #', 'Type', 'Receivable Amount', 'Payable Amount', 'Difference', 'Date', 'Status']}
         />
       </div>
