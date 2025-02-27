@@ -17,13 +17,8 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
       setLoading(true);
       setError(null);
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/customers`, {
-        // Add cache control to prevent excessive API calls
-        cache: 'no-cache',
-        headers: {
-          'Pragma': 'no-cache'
-        }
-      });
+      // Removed cache-control headers that were causing CORS issues
+      const response = await fetch(`${apiUrl}/auth/xero/customers`);
       
       if (!response.ok) {
         // Handle 401 Unauthorized specifically
@@ -57,13 +52,8 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
       setError(null);
       
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/customer/${customer.ContactID}/invoices`, {
-        // Add cache control to prevent excessive API calls
-        cache: 'no-cache',
-        headers: {
-          'Pragma': 'no-cache'
-        }
-      });
+      // Removed cache-control headers that were causing CORS issues
+      const response = await fetch(`${apiUrl}/auth/xero/customer/${customer.ContactID}/invoices`);
       
       if (!response.ok) {
         // Handle 401 Unauthorized specifically
