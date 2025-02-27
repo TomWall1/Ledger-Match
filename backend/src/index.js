@@ -9,11 +9,12 @@ dotenv.config();
 
 const app = express();
 
-// Centralized CORS configuration
+// Centralized CORS configuration with more permissive options
 const corsOptions = {
-  origin: ['https://ledger-match.vercel.app', 'http://localhost:3000'],
+  // Allow both production and development origins
+  origin: ['https://ledger-match.vercel.app', 'http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  allowedHeaders: ['*'],  // Allow all headers
   exposedHeaders: ['Content-Type'],
   credentials: true,
   maxAge: 86400 // Cache preflight requests for 24 hours
