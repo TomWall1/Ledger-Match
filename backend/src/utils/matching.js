@@ -65,7 +65,7 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
       }
     }
 
-    // Calculate variance
+    // Calculate variance - the absolute difference between totals
     const variance = calculateVariance(company1Total, company2Total);
 
     return {
@@ -151,7 +151,8 @@ const calculateTotal = (data) => {
 };
 
 const calculateVariance = (total1, total2) => {
-  return total1 + total2; // Since one should be negative
+  // Calculate the absolute difference between the two totals
+  return Math.abs(total1 - Math.abs(total2));
 };
 
 const findPotentialMatches = (item1, company2Data) => {
@@ -187,7 +188,7 @@ const isExactMatch = (item1, item2) => {
   const amount2 = item2.amount || 0;
   
   // Check if the amounts are opposite (with some small tolerance for rounding)
-  const amountsMatch = Math.abs(amount1 + amount2) < 0.01;
+  const amountsMatch = Math.abs(Math.abs(amount1) - Math.abs(amount2)) < 0.01;
   
   return idMatch && amountsMatch;
 };
@@ -207,9 +208,9 @@ const calculateMatchScore = (item1, item2) => {
   let score = 0;
 
   // Amount match (accounting for sign with tolerance)
-  const amount1 = item1.amount || 0;
-  const amount2 = item2.amount || 0;
-  if (Math.abs(amount1 + amount2) < 0.01) score += 3;
+  const amount1 = Math.abs(item1.amount || 0);
+  const amount2 = Math.abs(item2.amount || 0);
+  if (Math.abs(amount1 - amount2) < 0.01) score += 3;
 
   // Transaction number match
   if (item1.transactionNumber && item2.transactionNumber && 
