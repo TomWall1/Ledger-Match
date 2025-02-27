@@ -1,11 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import Header from '../components/Header';
 
 const Home = () => {
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-[#1B365D] mb-8">Ledger Match</h1>
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold text-[#1B365D] mt-8 mb-4">LedgerLink</h1>
+          <p className="text-xl text-[#647789]">Match and reconcile your financial records</p>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
