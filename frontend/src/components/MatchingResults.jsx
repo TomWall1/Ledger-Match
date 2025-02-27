@@ -51,14 +51,6 @@ const MatchingResults = ({ matchResults }) => {
     return isNaN(amount) ? 0 : amount;
   };
 
-  // Calculate difference between two amounts
-  const calculateDifference = (amount1, amount2) => {
-    const value1 = parseFloat(amount1) || 0;
-    const value2 = parseFloat(amount2) || 0;
-    // Calculate the absolute difference between the amounts
-    return Math.abs(value1 - Math.abs(value2));
-  };
-
   // Calculate total amounts for each category with safe accessors
   const perfectMatchAmount = safePerfectMatches.reduce((sum, match) => {
     const amount = match && match.company1 ? calculateAmount(match.company1) : 0;
@@ -200,16 +192,18 @@ const MatchingResults = ({ matchResults }) => {
         </div>
         <ResultTable
           data={safeMismatches.map(mismatch => {
-            const receivableAmount = mismatch?.company1?.amount || 0;
-            const payableAmount = mismatch?.company2?.amount || 0;
-            // Calculate difference as the absolute difference between the amounts
-            const difference = Math.abs(Math.abs(receivableAmount) - Math.abs(payableAmount));
+            // Extract the amounts with proper handling for null/undefined values
+            const receivableAmount = Math.abs(parseFloat(mismatch?.company1?.amount || 0));
+            const payableAmount = Math.abs(parseFloat(mismatch?.company2?.amount || 0));
+            
+            // Calculate absolute difference between absolute values of amounts
+            const difference = Math.abs(receivableAmount - payableAmount);
             
             return {
               'Transaction #': mismatch?.company1?.transactionNumber || mismatch?.company2?.transactionNumber || 'N/A',
               'Type': mismatch?.company1?.type || mismatch?.company2?.type || 'N/A',
-              'Receivable Amount': formatCurrency(receivableAmount),
-              'Payable Amount': formatCurrency(payableAmount),
+              'Receivable Amount': formatCurrency(mismatch?.company1?.amount || 0),
+              'Payable Amount': formatCurrency(mismatch?.company2?.amount || 0),
               'Difference': formatCurrency(difference),
               'Date': formatDate(mismatch?.company1?.date || mismatch?.company2?.date),
               'Status': mismatch?.company1?.status || mismatch?.company2?.status || 'N/A'
