@@ -4,6 +4,7 @@ import { FileUpload } from '../components/FileUpload';
 import DateFormatSelect from '../components/DateFormatSelect';
 import XeroCustomerSelect from '../components/XeroCustomerSelect';
 import { useXero } from '../context/XeroContext';
+import Header from '../components/Header';
 
 const Upload = () => {
   const navigate = useNavigate();
@@ -97,8 +98,9 @@ const Upload = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="max-w-7xl mx-auto p-6">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-[#1B365D]">Upload Files</h1>
           <Link
