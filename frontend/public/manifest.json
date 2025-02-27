@@ -1,11 +1,16 @@
 {
-  "short_name": "Ledger Match",
-  "name": "Ledger Match - Match your AR and AP records",
+  "short_name": "LedgerLink",
+  "name": "LedgerLink - Match your AR and AP records",
   "icons": [
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
+    },
+    {
+      "src": "logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192"
     }
   ],
   "start_url": ".",
