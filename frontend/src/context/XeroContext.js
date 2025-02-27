@@ -6,20 +6,43 @@ export const XeroProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [customerData, setCustomerData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(false);
 
   useEffect(() => {
+    // Initial auth check
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
+    // Prevent multiple simultaneous auth checks
+    if (isCheckingAuth) return isAuthenticated;
+    
     try {
+      setIsCheckingAuth(true);
       setLoading(true);
+      
+      // First try to get from localStorage to avoid unnecessary API calls
+      const storedAuth = localStorage.getItem('xeroAuth') === 'true';
+      if (storedAuth) {
+        setIsAuthenticated(true);
+        setLoading(false);
+        setIsCheckingAuth(false);
+        return true;
+      }
+      
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/status`);
+      const response = await fetch(`${apiUrl}/auth/xero/status`, {
+        // Add cache control to prevent excessive API calls
+        cache: 'no-cache',
+        headers: {
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (response.ok) {
         const data = await response.json();
         console.log('Xero authentication status:', data);
+        
         setIsAuthenticated(data.isAuthenticated);
         
         // Also update localStorage to keep state consistent
@@ -37,6 +60,7 @@ export const XeroProvider = ({ children }) => {
       return false;
     } finally {
       setLoading(false);
+      setIsCheckingAuth(false);
     }
   };
 
