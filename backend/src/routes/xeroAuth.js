@@ -63,8 +63,22 @@ async function callXeroApi(url, options = {}) {
   }
 }
 
+// Check authentication status
+router.get('/xero/status', async (req, res) => {
+  try {
+    const tokens = await tokenStore.getValidTokens();
+    res.json({ isAuthenticated: !!tokens });
+  } catch (error) {
+    console.error('Error checking authentication status:', error);
+    res.status(500).json({
+      error: 'Failed to check authentication status',
+      details: error.message
+    });
+  }
+});
+
 // Initial Xero connection route
-router.get('/xero', async (req, res) => {
+router.get('/xero/connect', async (req, res) => {
   try {
     const state = crypto.randomBytes(16).toString('hex');
     pendingStates.add(state);
@@ -74,7 +88,7 @@ router.get('/xero', async (req, res) => {
     url.searchParams.set('state', state);
     
     console.log('Generated consent URL:', { url: url.toString(), state });
-    res.json({ url: url.toString() });
+    res.json({ authUrl: url.toString() });
   } catch (error) {
     console.error('Error generating consent URL:', error);
     res.status(500).json({
@@ -127,11 +141,25 @@ router.get('/xero/callback', async (req, res) => {
     await tokenStore.saveTokens(tokens);
 
     const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
-    res.redirect(`${frontendUrl}?authenticated=true`);
+    res.redirect(`${frontendUrl}/auth/xero/callback?authenticated=true`);
   } catch (error) {
     console.error('Error in Xero callback:', error);
     const frontendUrl = process.env.FRONTEND_URL || 'https://ledger-match.vercel.app';
-    res.redirect(`${frontendUrl}?error=${encodeURIComponent(error.message)}`);
+    res.redirect(`${frontendUrl}/auth/xero/callback?error=${encodeURIComponent(error.message)}`);
+  }
+});
+
+// Disconnect from Xero
+router.post('/xero/disconnect', async (req, res) => {
+  try {
+    await tokenStore.clearTokens();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error disconnecting from Xero:', error);
+    res.status(500).json({
+      error: 'Failed to disconnect from Xero',
+      details: error.message
+    });
   }
 });
 
