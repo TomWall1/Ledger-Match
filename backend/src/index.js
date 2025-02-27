@@ -9,12 +9,22 @@ dotenv.config();
 
 const app = express();
 
-// Centralized CORS configuration with more permissive options
+// Centralized CORS configuration - explicitly list all allowed headers
 const corsOptions = {
   // Allow both production and development origins
   origin: ['https://ledger-match.vercel.app', 'http://localhost:3000', 'http://localhost:3001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['*'],  // Allow all headers
+  allowedHeaders: [
+    'Origin', 
+    'X-Requested-With', 
+    'Content-Type', 
+    'Accept', 
+    'Authorization',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Request-Headers',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Methods'
+  ],
   exposedHeaders: ['Content-Type'],
   credentials: true,
   maxAge: 86400 // Cache preflight requests for 24 hours
@@ -25,6 +35,14 @@ app.use(cors(corsOptions));
 
 // Handle OPTIONS preflight requests
 app.options('*', cors(corsOptions));
+
+// Add additional headers for all responses
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://ledger-match.vercel.app');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  next();
+});
 
 // Body parsing middleware
 app.use(express.json());
