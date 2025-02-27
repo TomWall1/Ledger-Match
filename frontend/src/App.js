@@ -5,7 +5,7 @@ import Home from './pages/Home';
 import Upload from './pages/Upload';
 import XeroAuth from './components/XeroAuth';
 import XeroCallback from './components/XeroCallback';
-import MatchingResults from './pages/Results';
+import Results from './pages/Results';
 
 function App() {
   return (
@@ -13,7 +13,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/upload" element={<Upload />} />
-        <Route path="/results" element={<MatchingResults />} />
+        <Route path="/results" element={<Results />} />
         <Route path="/auth/xero" element={<XeroAuth />} />
         <Route path="/auth/xero/callback" element={<XeroCallback />} />
       </Routes>
