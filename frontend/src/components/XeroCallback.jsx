@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useXero } from '../context/XeroContext';
 import NavHeader from './NavHeader';
@@ -8,8 +8,13 @@ const XeroCallback = () => {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
   const { setIsAuthenticated, checkAuth } = useXero();
+  const handledCallback = useRef(false);
 
   useEffect(() => {
+    // Only handle the callback once
+    if (handledCallback.current) return;
+    handledCallback.current = true;
+    
     const authenticated = searchParams.get('authenticated') === 'true';
     const errorMessage = searchParams.get('error');
 
@@ -20,18 +25,27 @@ const XeroCallback = () => {
 
     const handleCallback = async () => {
       try {
-        // First ensure we check the current auth state from the server
-        const isAuthenticated = await checkAuth();
-        
-        if (authenticated || isAuthenticated) {
-          // Force authentication state to true
-          setIsAuthenticated(true);
+        if (authenticated) {
+          // Set authentication state in localStorage immediately to prevent unnecessary API calls
           localStorage.setItem('xeroAuth', 'true');
+          setIsAuthenticated(true);
           
-          // Redirect to upload page with Xero enabled
-          navigate('/upload', { state: { xeroEnabled: true } });
+          // Navigate immediately to avoid potential redirect loops
+          navigate('/upload', { state: { xeroEnabled: true }, replace: true });
         } else {
-          throw new Error('Authentication failed');
+          // Double-check with the server
+          const isAuthenticated = await checkAuth();
+          
+          if (isAuthenticated) {
+            // Force authentication state to true
+            setIsAuthenticated(true);
+            localStorage.setItem('xeroAuth', 'true');
+            
+            // Redirect to upload page with Xero enabled
+            navigate('/upload', { state: { xeroEnabled: true }, replace: true });
+          } else {
+            throw new Error('Authentication failed');
+          }
         }
       } catch (error) {
         console.error('Xero callback error:', error);
@@ -56,7 +70,7 @@ const XeroCallback = () => {
               <p className="text-center">{error}</p>
             </div>
             <button
-              onClick={() => navigate('/upload')}
+              onClick={() => navigate('/upload', { replace: true })}
               className="w-full bg-[#1B365D] text-white py-2 px-4 rounded-lg hover:bg-opacity-90 transition-colors"
             >
               Return to Upload
