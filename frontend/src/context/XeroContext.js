@@ -1,13 +1,19 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const XeroContext = createContext();
 
 export const XeroProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [customerData, setCustomerData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
   const checkAuth = async () => {
     try {
+      setLoading(true);
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
       const response = await fetch(`${apiUrl}/auth/xero/status`);
       if (response.ok) {
@@ -19,6 +25,8 @@ export const XeroProvider = ({ children }) => {
     } catch (error) {
       console.error('Error checking Xero auth:', error);
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -28,7 +36,8 @@ export const XeroProvider = ({ children }) => {
       setIsAuthenticated,
       customerData,
       setCustomerData,
-      checkAuth
+      checkAuth,
+      loading
     }}>
       {children}
     </XeroContext.Provider>
