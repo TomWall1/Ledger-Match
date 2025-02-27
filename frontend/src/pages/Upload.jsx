@@ -8,30 +8,24 @@ import { useXero } from '../context/XeroContext';
 const Upload = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, checkAuth } = useXero();
+  const { isAuthenticated, loading } = useXero();
   const [files, setFiles] = useState({ ar: null, ap: null });
   const [dateFormats, setDateFormats] = useState({ ar: 'MM/DD/YYYY', ap: 'MM/DD/YYYY' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sourceType, setSourceType] = useState('csv');
-  const [initialized, setInitialized] = useState(false);
   const [localAuthState, setLocalAuthState] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      const isAuth = await checkAuth();
-      setLocalAuthState(isAuth);
-      
-      if (!initialized) {
-        // If already authenticated and coming back from Xero auth, set source type to xero
-        if (isAuth && (location.state?.xeroEnabled)) {
-          setSourceType('xero');
-        }
-        setInitialized(true);
-      }
-    };
-    init();
-  }, [checkAuth, initialized, location.state]);
+    // Check local storage for auth state
+    const storedAuth = localStorage.getItem('xeroAuth') === 'true';
+    setLocalAuthState(storedAuth || isAuthenticated);
+    
+    // If location state has xeroEnabled, switch to xero source type
+    if ((storedAuth || isAuthenticated) && location.state?.xeroEnabled) {
+      setSourceType('xero');
+    }
+  }, [isAuthenticated, location.state]);
 
   const handleXeroSelect = (data) => {
     setFiles(prev => ({
@@ -89,6 +83,18 @@ const Upload = () => {
   const handleConnectXero = () => {
     navigate('/auth/xero');
   };
+
+  // If still loading Xero auth state, show loading indicator
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B365D] mx-auto mb-4"></div>
+          <p className="text-[#1B365D]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
