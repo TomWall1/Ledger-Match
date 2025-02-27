@@ -7,32 +7,32 @@ const XeroCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
-  const { setIsAuthenticated } = useXero();
+  const { setIsAuthenticated, checkAuth } = useXero();
 
   useEffect(() => {
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
+    const authenticated = searchParams.get('authenticated') === 'true';
+    const errorMessage = searchParams.get('error');
 
-    if (!code) {
-      setError('No authorization code received');
+    if (errorMessage) {
+      setError(decodeURIComponent(errorMessage));
       return;
     }
 
     const handleCallback = async () => {
       try {
-        const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-        const response = await fetch(`${apiUrl}/auth/xero/callback?code=${code}&state=${state}`);
-
-        if (!response.ok) {
-          throw new Error('Failed to complete authentication');
-        }
-
-        // Force authentication state to true
-        setIsAuthenticated(true);
-        localStorage.setItem('xeroAuth', 'true');
+        // First ensure we check the current auth state from the server
+        const isAuthenticated = await checkAuth();
         
-        // Redirect to upload page with Xero enabled
-        navigate('/upload', { state: { xeroEnabled: true } });
+        if (authenticated || isAuthenticated) {
+          // Force authentication state to true
+          setIsAuthenticated(true);
+          localStorage.setItem('xeroAuth', 'true');
+          
+          // Redirect to upload page with Xero enabled
+          navigate('/upload', { state: { xeroEnabled: true } });
+        } else {
+          throw new Error('Authentication failed');
+        }
       } catch (error) {
         console.error('Xero callback error:', error);
         setError(error.message);
@@ -40,7 +40,7 @@ const XeroCallback = () => {
     };
 
     handleCallback();
-  }, [searchParams, navigate, setIsAuthenticated]);
+  }, [searchParams, navigate, setIsAuthenticated, checkAuth]);
 
   if (error) {
     return (
