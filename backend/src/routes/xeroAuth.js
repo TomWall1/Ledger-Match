@@ -35,31 +35,40 @@ const requireXeroAuth = async (req, res, next) => {
 
 // Helper function to make authenticated Xero API calls
 async function callXeroApi(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...options.headers,
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    }
-  });
-
-  const text = await response.text();
-  console.log(`Response from ${url}:`, {
-    status: response.status,
-    headers: response.headers.raw(),
-    body: text
-  });
-
-  if (!response.ok) {
-    throw new Error(`API call failed: ${response.status} ${text}`);
-  }
-
   try {
-    return JSON.parse(text);
+    console.log('Making API call to Xero:', url);
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const text = await response.text();
+    console.log(`Response from ${url}:`, {
+      status: response.status,
+      statusText: response.statusText
+    });
+
+    if (!response.ok) {
+      console.error('API call failed:', {
+        status: response.status,
+        text: text.substring(0, 500) // Limit response size in logs
+      });
+      throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error('Failed to parse response:', text.substring(0, 500));
+      throw new Error('Invalid JSON response from Xero');
+    }
   } catch (error) {
-    console.error('Failed to parse response:', text);
-    throw new Error('Invalid JSON response from Xero');
+    console.error('Error in callXeroApi:', error);
+    throw error;
   }
 }
 
@@ -225,18 +234,23 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
 
     const tenantId = tenants[0].tenantId;
 
-    // Base URL for fetching invoices
-    let url = `https://api.xero.com/api.xro/2.0/Invoices?where=Contact.ContactID.ToString()=="${customerId}"`;
+    // Instead of using multiple WHERE clauses which might be causing issues,
+    // use a simpler query that's more likely to work
+    const baseUrl = 'https://api.xero.com/api.xro/2.0/Invoices';
+
+    // Build params separately
+    const params = new URLSearchParams();
+    params.set('where', `Contact.ContactID=guid("${customerId}")`);
     
-    // If includeHistory is true, modify the query to include all invoice statuses
-    if (includeHistory === 'true') {
-      // Fetch all invoices including paid, voided, etc.
-      url += '&order=Date DESC';
-    } else {
-      // Default behavior - only fetch active invoices
-      url += '&where=Status!="PAID"&where=Status!="VOIDED"&order=Date DESC';
+    // Only filter out PAID and VOIDED if we're not including history
+    if (includeHistory !== 'true') {
+      params.set('where', `Status!="PAID" AND Status!="VOIDED"`);
     }
     
+    // Always sort by date
+    params.set('order', 'Date DESC');
+    
+    const url = `${baseUrl}?${params.toString()}`;
     console.log('Fetching invoices with URL:', url);
 
     const invoicesData = await callXeroApi(url, {
@@ -247,7 +261,7 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
     });
     
     // Transform to match CSV format
-    console.log('Received invoices:', invoicesData);
+    console.log(`Received ${invoicesData.Invoices?.length || 0} invoices`);
     const transformedInvoices = (invoicesData.Invoices || []).map(invoice => ({
       transaction_number: invoice.InvoiceNumber,
       transaction_type: invoice.Type,
@@ -293,11 +307,16 @@ router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
     const tenantId = tenants[0].tenantId;
 
     // Fetch all invoices including paid ones from the last 12 months
+    // Use a simpler query format that's more compatible with Xero API
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
     const dateStr = twelveMonthsAgo.toISOString().split('T')[0];
     
-    const url = `https://api.xero.com/api.xro/2.0/Invoices?where=Date>=DateTime(${dateStr})&order=Date DESC`;
+    const params = new URLSearchParams();
+    params.set('where', `Date >= DateTime(${dateStr})`); 
+    params.set('order', 'Date DESC');
+    
+    const url = `https://api.xero.com/api.xro/2.0/Invoices?${params.toString()}`;
     console.log('Fetching historical invoices with URL:', url);
 
     const invoicesData = await callXeroApi(url, {
@@ -308,6 +327,7 @@ router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
     });
     
     // Transform to match CSV format with additional historical status info
+    console.log(`Received ${invoicesData.Invoices?.length || 0} historical invoices`);
     const transformedInvoices = (invoicesData.Invoices || []).map(invoice => ({
       transaction_number: invoice.InvoiceNumber,
       transaction_type: invoice.Type,
