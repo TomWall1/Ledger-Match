@@ -9,13 +9,15 @@ dayjs.extend(customParseFormat);
  * @param {Array} company2Data - Second company's transaction data
  * @param {string} dateFormat1 - Date format for first company's data
  * @param {string} dateFormat2 - Date format for second company's data
- * @returns {Object} Matching results containing perfect matches, mismatches, and unmatched items
+ * @param {Array} historicalData - Optional historical AR data to check paid status
+ * @returns {Object} Matching results containing perfect matches, mismatches, unmatched items, and historical insights
  */
-export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM/DD/YYYY', dateFormat2 = 'MM/DD/YYYY') => {
+export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM/DD/YYYY', dateFormat2 = 'MM/DD/YYYY', historicalData = []) => {
   try {
     console.log('Starting matching process with:', {
       company1Count: company1Data.length,
       company2Count: company2Data.length,
+      historicalCount: historicalData.length,
       dateFormat1,
       dateFormat2
     });
@@ -23,10 +25,17 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
     // Log some sample data for debugging
     console.log('Company1 sample data:', company1Data.slice(0, 2));
     console.log('Company2 sample data:', company2Data.slice(0, 2));
+    if (historicalData.length > 0) {
+      console.log('Historical sample data:', historicalData.slice(0, 2));
+    }
 
     // Normalize data
     const normalizedCompany1 = normalizeData(company1Data, dateFormat1);
     const normalizedCompany2 = normalizeData(company2Data, dateFormat2);
+    
+    // Normalize historical data if provided
+    const normalizedHistorical = historicalData.length > 0 ? 
+      normalizeData(historicalData, dateFormat1) : [];
 
     // Log normalized data for debugging
     console.log('Normalized Company1 sample:', normalizedCompany1.slice(0, 2));
@@ -38,6 +47,9 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
       company1: [...normalizedCompany1],
       company2: [...normalizedCompany2]
     };
+    
+    // New array to track historical insights for unmatched AP items
+    const historicalInsights = [];
 
     // Calculate totals
     const company1Total = calculateTotal(normalizedCompany1);
@@ -64,6 +76,38 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
         removeFromUnmatched(unmatchedItems, item1, bestMatch);
       }
     }
+    
+    // After regular matching, check for historical insights for unmatched AP items
+    if (normalizedHistorical.length > 0) {
+      for (const apItem of unmatchedItems.company2) {
+        // Look for matching transaction numbers or references in historical data
+        const historicalMatches = findHistoricalMatches(apItem, normalizedHistorical);
+        
+        if (historicalMatches.length > 0) {
+          // Sort matches by relevance (paid status prioritized, then by date)
+          const sortedMatches = historicalMatches.sort((a, b) => {
+            // Prioritize paid items
+            if (a.is_paid && !b.is_paid) return -1;
+            if (!a.is_paid && b.is_paid) return 1;
+            
+            // Then sort by date (most recent first)
+            if (a.date && b.date) {
+              return dayjs(b.date).diff(dayjs(a.date));
+            }
+            return 0;
+          });
+          
+          // Take the best historical match
+          const bestHistoricalMatch = sortedMatches[0];
+          
+          historicalInsights.push({
+            apItem: apItem,
+            historicalMatch: bestHistoricalMatch,
+            insight: determineHistoricalInsight(apItem, bestHistoricalMatch)
+          });
+        }
+      }
+    }
 
     // Calculate variance - the absolute difference between totals
     const variance = calculateVariance(company1Total, company2Total);
@@ -72,6 +116,7 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
       perfectMatches,
       mismatches,
       unmatchedItems,
+      historicalInsights,
       totals: {
         company1Total,
         company2Total,
@@ -82,6 +127,64 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
     console.error('Error in matchRecords:', error);
     throw new Error(`Matching error: ${error.message}`);
   }
+};
+
+/**
+ * Find matches for AP items in historical AR data
+ * @param {Object} apItem - AP item to find matches for
+ * @param {Array} historicalData - Historical AR data
+ * @returns {Array} Matching historical items
+ */
+const findHistoricalMatches = (apItem, historicalData) => {
+  return historicalData.filter(histItem => {
+    // Match transaction number
+    if (apItem.transactionNumber && histItem.transactionNumber && 
+        apItem.transactionNumber === histItem.transactionNumber) {
+      return true;
+    }
+    
+    // Match reference
+    if (apItem.reference && histItem.reference && 
+        apItem.reference === histItem.reference) {
+      return true;
+    }
+    
+    return false;
+  });
+};
+
+/**
+ * Determine insight about historical match
+ * @param {Object} apItem - AP item 
+ * @param {Object} historicalItem - Matching historical AR item
+ * @returns {Object} Insight about the historical match
+ */
+const determineHistoricalInsight = (apItem, historicalItem) => {
+  const insight = {
+    type: '',
+    message: '',
+    severity: 'info' // 'info', 'warning', or 'error'
+  };
+  
+  if (historicalItem.is_paid) {
+    insight.type = 'already_paid';
+    insight.message = `Invoice ${apItem.transactionNumber} appears to have been paid on ${dayjs(historicalItem.payment_date).format('MMM D, YYYY')}`;
+    insight.severity = 'warning';
+  } else if (historicalItem.is_voided) {
+    insight.type = 'voided';
+    insight.message = `Invoice ${apItem.transactionNumber} was voided in the AR system`;
+    insight.severity = 'error';
+  } else if (historicalItem.status === 'DRAFT') {
+    insight.type = 'draft';
+    insight.message = `Invoice ${apItem.transactionNumber} exists as a draft in the AR system`;
+    insight.severity = 'info';
+  } else {
+    insight.type = 'found_in_history';
+    insight.message = `Invoice ${apItem.transactionNumber} found in AR history with status: ${historicalItem.status}`;
+    insight.severity = 'info';
+  }
+  
+  return insight;
 };
 
 // Safely convert a value to number, handling various formats
@@ -123,7 +226,11 @@ const normalizeData = (data, dateFormat) => {
       date: parseDate(record.issue_date, dateFormat),
       dueDate: parseDate(record.due_date, dateFormat),
       status: record.status?.toString().trim(),
-      reference: record.reference?.toString().trim()
+      reference: record.reference?.toString().trim(),
+      // Add historical data fields if they exist
+      payment_date: record.payment_date ? parseDate(record.payment_date, dateFormat) : null,
+      is_paid: record.is_paid || record.status === 'PAID',
+      is_voided: record.is_voided || record.status === 'VOIDED'
     };
     
     // Debug logging to see the result
