@@ -2,6 +2,7 @@ import express from 'express';
 import { XeroClient } from 'xero-node';
 import fetch from 'node-fetch';
 import crypto from 'crypto';
+import dayjs from 'dayjs';
 import { tokenStore } from '../utils/tokenStore.js';
 
 const router = express.Router();
@@ -15,6 +16,35 @@ const xero = new XeroClient({
   scopes: ['offline_access', 'accounting.transactions.read', 'accounting.contacts.read'],
   httpTimeout: 30000
 });
+
+// Helper function to format Xero date correctly
+const formatXeroDate = (xeroDateString) => {
+  if (!xeroDateString) return null;
+  
+  // Xero returns dates in this format: /Date(1633392000000+0000)/
+  // We need to extract the timestamp and convert it to ISO format
+  try {
+    // Extract timestamp (milliseconds since epoch)
+    const timestampMatch = xeroDateString.match(/\/Date\((\d+)[+-]\d{4}\)\/);
+    if (timestampMatch && timestampMatch[1]) {
+      const timestamp = parseInt(timestampMatch[1], 10);
+      return new Date(timestamp).toISOString();
+    }
+    
+    // If it's already in a standard format, try parsing directly
+    const parsedDate = dayjs(xeroDateString);
+    if (parsedDate.isValid()) {
+      return parsedDate.toISOString();
+    }
+    
+    // If we can't parse it, return null
+    console.warn(`Unable to parse Xero date: ${xeroDateString}`);
+    return null;
+  } catch (error) {
+    console.error('Error parsing Xero date:', error);
+    return null;
+  }
+};
 
 // Middleware to verify Xero authentication
 const requireXeroAuth = async (req, res, next) => {
@@ -266,13 +296,13 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
       transaction_number: invoice.InvoiceNumber,
       transaction_type: invoice.Type,
       amount: invoice.Total,
-      issue_date: invoice.Date,
-      due_date: invoice.DueDate,
+      issue_date: formatXeroDate(invoice.Date),
+      due_date: formatXeroDate(invoice.DueDate),
       status: invoice.Status,
       reference: invoice.Reference || '',
       // Add history-related fields
       payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
-        invoice.Payments[0].Date : null,
+        formatXeroDate(invoice.Payments[0].Date) : null,
       is_paid: invoice.Status === 'PAID',
       is_voided: invoice.Status === 'VOIDED'
     }));
@@ -313,7 +343,7 @@ router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
     const dateStr = twelveMonthsAgo.toISOString().split('T')[0];
     
     const params = new URLSearchParams();
-    params.set('where', `Date >= DateTime(${dateStr})`); 
+    params.set('where', `Date >= DateTime(${dateStr})`);
     params.set('order', 'Date DESC');
     
     const url = `https://api.xero.com/api.xro/2.0/Invoices?${params.toString()}`;
@@ -328,20 +358,29 @@ router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
     
     // Transform to match CSV format with additional historical status info
     console.log(`Received ${invoicesData.Invoices?.length || 0} historical invoices`);
-    const transformedInvoices = (invoicesData.Invoices || []).map(invoice => ({
-      transaction_number: invoice.InvoiceNumber,
-      transaction_type: invoice.Type,
-      amount: invoice.Total,
-      issue_date: invoice.Date,
-      due_date: invoice.DueDate,
-      status: invoice.Status,
-      reference: invoice.Reference || '',
-      // Historical data
-      payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
-        invoice.Payments[0].Date : null,
-      is_paid: invoice.Status === 'PAID',
-      is_voided: invoice.Status === 'VOIDED'
-    }));
+    const transformedInvoices = (invoicesData.Invoices || []).map(invoice => {
+      // Debug output for date fields
+      console.log('Raw date fields for invoice', invoice.InvoiceNumber, {
+        date: invoice.Date,
+        dueDate: invoice.DueDate,
+        paymentDate: invoice.Payments && invoice.Payments.length > 0 ? invoice.Payments[0].Date : null
+      });
+      
+      return {
+        transaction_number: invoice.InvoiceNumber,
+        transaction_type: invoice.Type,
+        amount: invoice.Total,
+        issue_date: formatXeroDate(invoice.Date),
+        due_date: formatXeroDate(invoice.DueDate),
+        status: invoice.Status,
+        reference: invoice.Reference || '',
+        // Historical data
+        payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
+          formatXeroDate(invoice.Payments[0].Date) : null,
+        is_paid: invoice.Status === 'PAID',
+        is_voided: invoice.Status === 'VOIDED'
+      };
+    });
 
     res.json({
       success: true,
