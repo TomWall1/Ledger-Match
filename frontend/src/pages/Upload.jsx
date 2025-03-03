@@ -16,6 +16,7 @@ const Upload = () => {
   const [error, setError] = useState(null);
   const [sourceType, setSourceType] = useState('csv');
   const [localAuthState, setLocalAuthState] = useState(false);
+  const [useHistoricalData, setUseHistoricalData] = useState(false);
   const authCheckPerformed = useRef(false);
 
   useEffect(() => {
@@ -67,6 +68,8 @@ const Upload = () => {
         name: `Xero: ${data.customerName}`
       }
     }));
+    // Automatically enable historical data when using Xero
+    setUseHistoricalData(true);
   };
 
   const handleMatch = async () => {
@@ -91,6 +94,7 @@ const Upload = () => {
       formData.append('company2File', files.ap);
       formData.append('dateFormat1', dateFormats.ar);
       formData.append('dateFormat2', dateFormats.ap);
+      formData.append('useHistoricalData', useHistoricalData);
 
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
       const response = await fetch(`${apiUrl}/api/match`, {
@@ -251,6 +255,26 @@ const Upload = () => {
               />
             </div>
           </div>
+        </div>
+
+        {/* Historical Data Option */}
+        <div className="mt-6 bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="useHistoricalData"
+              checked={useHistoricalData}
+              onChange={(e) => setUseHistoricalData(e.target.checked)}
+              className="h-5 w-5 text-[#00A4B4] rounded focus:ring-[#00A4B4]"
+            />
+            <label htmlFor="useHistoricalData" className="text-[#1B365D] font-medium">
+              Check for historical invoice status in AR ledger
+            </label>
+          </div>
+          <p className="mt-2 text-sm text-[#647789] ml-8">
+            When enabled, the system will check if unmatched AP items exist in the historical AR ledger (e.g., already paid or voided invoices).
+            {!localAuthState && <span className="block mt-1 italic">Connect to Xero for best results with historical data.</span>}
+          </p>
         </div>
 
         <div className="mt-8 flex justify-center">
