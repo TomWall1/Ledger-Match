@@ -4,6 +4,7 @@ const MatchingResults = ({ matchResults }) => {
   const perfectMatchesRef = useRef(null);
   const mismatchesRef = useRef(null);
   const unmatchedRef = useRef(null);
+  const historicalInsightsRef = useRef(null);
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined) return 'N/A';
@@ -42,6 +43,7 @@ const MatchingResults = ({ matchResults }) => {
   const safePerfectMatches = Array.isArray(safeMatchResults.perfectMatches) ? safeMatchResults.perfectMatches : [];
   const safeMismatches = Array.isArray(safeMatchResults.mismatches) ? safeMatchResults.mismatches : [];
   const safeUnmatchedItems = safeMatchResults.unmatchedItems || { company1: [], company2: [] };
+  const safeHistoricalInsights = Array.isArray(safeMatchResults.historicalInsights) ? safeMatchResults.historicalInsights : [];
   const safeTotals = safeMatchResults.totals || { company1Total: 0, company2Total: 0, variance: 0 };
 
   // Safe amount calculations
@@ -69,6 +71,19 @@ const MatchingResults = ({ matchResults }) => {
 
   // Safe total receivables calculation
   const totalReceivables = parseFloat(safeTotals.company1Total || 0);
+
+  // Helper function to get badge style based on severity
+  const getInsightBadgeClass = (severity) => {
+    switch (severity) {
+      case 'error':
+        return 'bg-red-100 text-red-700 border-red-200';
+      case 'warning':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'info':
+      default:
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+    }
+  };
 
   const ResultTable = ({ title, data, columns }) => (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
@@ -124,7 +139,7 @@ const MatchingResults = ({ matchResults }) => {
       </div>
 
       {/* Match Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div 
           className="bg-white rounded-lg shadow-lg p-6 border-l-4 border border-[#7BDCB5] cursor-pointer hover:bg-gray-50 transition-colors"
           onClick={() => scrollToSection(perfectMatchesRef)}
@@ -165,6 +180,19 @@ const MatchingResults = ({ matchResults }) => {
             ({formatPercentage(unmatchedAmount, totalReceivables)})
           </p>
         </div>
+
+        {safeHistoricalInsights.length > 0 && (
+          <div 
+            className="bg-white rounded-lg shadow-lg p-6 border-l-4 border border-blue-400 cursor-pointer hover:bg-gray-50 transition-colors"
+            onClick={() => scrollToSection(historicalInsightsRef)}
+          >
+            <h3 className="text-lg font-semibold text-[#1B365D]">Historical Insights</h3>
+            <p className="text-3xl font-bold text-blue-500">{safeHistoricalInsights.length}</p>
+            <p className="text-sm text-[#647789] mt-2">
+              Additional context for unmatched AP items
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Perfect Matches Section */}
@@ -247,6 +275,55 @@ const MatchingResults = ({ matchResults }) => {
           </div>
         </div>
       </div>
+
+      {/* Historical Insights Section - New */}
+      {safeHistoricalInsights.length > 0 && (
+        <div ref={historicalInsightsRef} className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-[#1B365D]">
+              Historical Insights for AP Items ({safeHistoricalInsights.length})
+            </h2>
+          </div>
+          <div className="space-y-4">
+            {safeHistoricalInsights.map((insight, index) => {
+              const badgeClass = getInsightBadgeClass(insight.insight.severity);
+              return (
+                <div key={index} className="border rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
+                    <div className="space-y-2">
+                      <h3 className="font-medium text-[#1B365D]">AP Item</h3>
+                      <div className="text-sm">
+                        <p><span className="font-medium">Transaction #:</span> {insight.apItem?.transactionNumber || 'N/A'}</p>
+                        <p><span className="font-medium">Amount:</span> {formatCurrency(insight.apItem?.amount || 0)}</p>
+                        <p><span className="font-medium">Date:</span> {formatDate(insight.apItem?.date)}</p>
+                        <p><span className="font-medium">Status:</span> {insight.apItem?.status || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-medium text-[#1B365D]">AR Historical Match</h3>
+                      <div className="text-sm">
+                        <p><span className="font-medium">Transaction #:</span> {insight.historicalMatch?.transactionNumber || 'N/A'}</p>
+                        <p><span className="font-medium">Amount:</span> {formatCurrency(insight.historicalMatch?.amount || 0)}</p>
+                        <p><span className="font-medium">Date:</span> {formatDate(insight.historicalMatch?.date)}</p>
+                        <p><span className="font-medium">Status:</span> {insight.historicalMatch?.status || 'N/A'}</p>
+                        {insight.historicalMatch?.payment_date && (
+                          <p><span className="font-medium">Payment Date:</span> {formatDate(insight.historicalMatch?.payment_date)}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-medium text-[#1B365D]">Insight</h3>
+                      <div className={`text-sm px-3 py-2 rounded-md border ${badgeClass}`}>
+                        {insight.insight?.message || 'No additional insights available'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
