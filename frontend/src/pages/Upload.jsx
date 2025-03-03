@@ -215,12 +215,16 @@ const Upload = () => {
                 </div>
               ) : (
                 <div className="text-center mb-6 p-4 bg-[#13B5EA] bg-opacity-5 rounded-lg">
-                  <p className="text-[#13B5EA] mb-4">Connect to Xero to import your accounts receivable data</p>
+                  <p className="text-[#13B5EA] mb-4">
+                    {localAuthState 
+                      ? "Select data from your connected Xero account"
+                      : "Connect to Xero to import your accounts receivable data"}
+                  </p>
                   <button
                     onClick={handleConnectXero}
                     className="bg-[#13B5EA] text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors"
                   >
-                    Connect to Xero
+                    {localAuthState ? "From Xero" : "Connect to Xero"}
                   </button>
                 </div>
               )}
