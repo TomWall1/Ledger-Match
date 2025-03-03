@@ -205,11 +205,12 @@ router.get('/xero/customers', requireXeroAuth, async (req, res) => {
   }
 });
 
-// Get customer invoices
+// Get customer invoices - includes both current and historical
 router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, res) => {
   try {
     const { customerId } = req.params;
-    console.log('Fetching invoices for customer:', customerId);
+    const { includeHistory } = req.query;
+    console.log('Fetching invoices for customer:', customerId, 'includeHistory:', includeHistory);
 
     // Get organization first
     const tenants = await callXeroApi('https://api.xero.com/connections', {
@@ -224,8 +225,18 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
 
     const tenantId = tenants[0].tenantId;
 
-    // Get invoices - using ContactID in filter
-    const url = `https://api.xero.com/api.xro/2.0/Invoices?where=Contact.ContactID.ToString()=="${customerId}"&order=Date DESC`;
+    // Base URL for fetching invoices
+    let url = `https://api.xero.com/api.xro/2.0/Invoices?where=Contact.ContactID.ToString()=="${customerId}"`;
+    
+    // If includeHistory is true, modify the query to include all invoice statuses
+    if (includeHistory === 'true') {
+      // Fetch all invoices including paid, voided, etc.
+      url += '&order=Date DESC';
+    } else {
+      // Default behavior - only fetch active invoices
+      url += '&where=Status!="PAID"&where=Status!="VOIDED"&order=Date DESC';
+    }
+    
     console.log('Fetching invoices with URL:', url);
 
     const invoicesData = await callXeroApi(url, {
@@ -244,7 +255,12 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
       issue_date: invoice.Date,
       due_date: invoice.DueDate,
       status: invoice.Status,
-      reference: invoice.Reference || ''
+      reference: invoice.Reference || '',
+      // Add history-related fields
+      payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
+        invoice.Payments[0].Date : null,
+      is_paid: invoice.Status === 'PAID',
+      is_voided: invoice.Status === 'VOIDED'
     }));
 
     res.json({
@@ -255,6 +271,66 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
     console.error('Error fetching invoices:', error);
     res.status(500).json({
       error: 'Failed to fetch invoices',
+      details: error.message
+    });
+  }
+});
+
+// New endpoint to get historical invoice data for matching
+router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
+  try {
+    // Get organization first
+    const tenants = await callXeroApi('https://api.xero.com/connections', {
+      headers: {
+        'Authorization': `Bearer ${req.xeroTokens.access_token}`
+      }
+    });
+
+    if (!tenants || tenants.length === 0) {
+      throw new Error('No organizations found');
+    }
+
+    const tenantId = tenants[0].tenantId;
+
+    // Fetch all invoices including paid ones from the last 12 months
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    const dateStr = twelveMonthsAgo.toISOString().split('T')[0];
+    
+    const url = `https://api.xero.com/api.xro/2.0/Invoices?where=Date>=DateTime(${dateStr})&order=Date DESC`;
+    console.log('Fetching historical invoices with URL:', url);
+
+    const invoicesData = await callXeroApi(url, {
+      headers: {
+        'Authorization': `Bearer ${req.xeroTokens.access_token}`,
+        'Xero-tenant-id': tenantId
+      }
+    });
+    
+    // Transform to match CSV format with additional historical status info
+    const transformedInvoices = (invoicesData.Invoices || []).map(invoice => ({
+      transaction_number: invoice.InvoiceNumber,
+      transaction_type: invoice.Type,
+      amount: invoice.Total,
+      issue_date: invoice.Date,
+      due_date: invoice.DueDate,
+      status: invoice.Status,
+      reference: invoice.Reference || '',
+      // Historical data
+      payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
+        invoice.Payments[0].Date : null,
+      is_paid: invoice.Status === 'PAID',
+      is_voided: invoice.Status === 'VOIDED'
+    }));
+
+    res.json({
+      success: true,
+      invoices: transformedInvoices
+    });
+  } catch (error) {
+    console.error('Error fetching historical invoices:', error);
+    res.status(500).json({
+      error: 'Failed to fetch historical invoices',
       details: error.message
     });
   }
