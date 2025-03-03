@@ -19,22 +19,35 @@ async function fetchHistoricalInvoiceData() {
       return [];
     }
 
+    // The URL is relative to our own API - important fix to make this work properly
     const apiUrl = process.env.API_URL || 'https://ledger-match-backend.onrender.com';
-    const response = await fetch(`${apiUrl}/auth/xero/historical-invoices`, {
-      headers: {
-        'Authorization': `Bearer ${tokens.access_token}`
-      }
-    });
+    const historyEndpoint = '/auth/xero/historical-invoices';
+    
+    console.log(`Fetching historical invoice data from: ${apiUrl}${historyEndpoint}`);
+    
+    try {
+      const response = await fetch(`${apiUrl}${historyEndpoint}`, {
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`
+        },
+        timeout: 30000 // 30 second timeout for this potentially long operation
+      });
 
-    if (!response.ok) {
-      console.error('Failed to fetch historical invoice data:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Failed to fetch historical invoice data: ${response.status}\nDetails: ${errorText}`);
+        return [];
+      }
+
+      const data = await response.json();
+      console.log(`Successfully retrieved ${data.invoices?.length || 0} historical invoices`);
+      return data.invoices || [];
+    } catch (fetchError) {
+      console.error('Network error when fetching historical invoice data:', fetchError);
       return [];
     }
-
-    const data = await response.json();
-    return data.invoices || [];
   } catch (error) {
-    console.error('Error fetching historical invoice data:', error);
+    console.error('Error in fetchHistoricalInvoiceData:', error);
     return [];
   }
 }
@@ -49,7 +62,7 @@ router.post('/api/match', upload.fields([
 
     let company1Data;
     let company2Data;
-    let useHistoricalData = req.body.useHistoricalData === 'true';
+    const useHistoricalData = req.body.useHistoricalData === 'true';
 
     // Handle Company 1 data (either from file or Xero)
     if (req.files.company1File) {
@@ -74,14 +87,22 @@ router.post('/api/match', upload.fields([
       company1Data = company1ParseResult.data;
       console.log('Parsed company1 data sample:', company1Data.slice(0, 2));
     } else if (req.body.company1Data) {
-      company1Data = JSON.parse(req.body.company1Data);
-      // If data is from Xero, automatically enable historical data usage
-      useHistoricalData = true;
+      try {
+        company1Data = JSON.parse(req.body.company1Data);
+        // If data is from Xero, automatically enable historical data usage
+        console.log('Parsed Xero data sample:', company1Data.slice(0, 2));
+      } catch (parseError) {
+        console.error('Error parsing company1Data JSON:', parseError);
+        throw new Error('Invalid company1Data format');
+      }
     } else {
       throw new Error('No Company 1 data provided');
     }
 
     // Process Company 2 data
+    if (!req.files.company2File || !req.files.company2File[0]) {
+      throw new Error('No Company 2 file provided');
+    }
     const company2Buffer = req.files.company2File[0].buffer;
     const company2Csv = iconv.decode(company2Buffer, 'utf-8');
     
@@ -111,8 +132,13 @@ router.post('/api/match', upload.fields([
     let historicalData = [];
     if (useHistoricalData) {
       console.log('Fetching historical invoice data for enhanced matching...');
-      historicalData = await fetchHistoricalInvoiceData();
-      console.log(`Retrieved ${historicalData.length} historical invoices for matching`);
+      try {
+        historicalData = await fetchHistoricalInvoiceData();
+        console.log(`Retrieved ${historicalData.length} historical invoices for matching`);
+      } catch (historyError) {
+        console.error('Error fetching historical data, continuing without it:', historyError);
+        // We'll continue without historical data rather than failing the whole operation
+      }
     }
 
     // Process the records with historical data if available
