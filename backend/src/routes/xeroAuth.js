@@ -46,6 +46,28 @@ const formatXeroDate = (xeroDateString) => {
   }
 };
 
+// Helper function to calculate the amount paid on a Xero invoice
+const calculateAmountPaid = (invoice) => {
+  if (!invoice || !invoice.Payments || !Array.isArray(invoice.Payments)) {
+    return 0;
+  }
+  
+  return invoice.Payments.reduce((total, payment) => {
+    const amount = parseFloat(payment.Amount || 0);
+    return total + (isNaN(amount) ? 0 : amount);
+  }, 0);
+};
+
+// Helper function to calculate the remaining balance on a Xero invoice
+const calculateRemainingBalance = (invoice) => {
+  if (!invoice) return 0;
+  
+  const total = parseFloat(invoice.Total || 0);
+  const amountPaid = calculateAmountPaid(invoice);
+  
+  return Math.max(0, total - amountPaid);
+};
+
 // Middleware to verify Xero authentication
 const requireXeroAuth = async (req, res, next) => {
   try {
@@ -292,20 +314,32 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
     
     // Transform to match CSV format
     console.log(`Received ${invoicesData.Invoices?.length || 0} invoices`);
-    const transformedInvoices = (invoicesData.Invoices || []).map(invoice => ({
-      transaction_number: invoice.InvoiceNumber,
-      transaction_type: invoice.Type,
-      amount: invoice.Total,
-      issue_date: formatXeroDate(invoice.Date),
-      due_date: formatXeroDate(invoice.DueDate),
-      status: invoice.Status,
-      reference: invoice.Reference || '',
-      // Add history-related fields
-      payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
-        formatXeroDate(invoice.Payments[0].Date) : null,
-      is_paid: invoice.Status === 'PAID',
-      is_voided: invoice.Status === 'VOIDED'
-    }));
+    const transformedInvoices = (invoicesData.Invoices || []).map(invoice => {
+      // Calculate amount paid and remaining balance
+      const totalAmount = parseFloat(invoice.Total || 0);
+      const amountPaid = calculateAmountPaid(invoice);
+      const remainingBalance = calculateRemainingBalance(invoice);
+      const isPartiallyPaid = amountPaid > 0 && amountPaid < totalAmount;
+      
+      return {
+        transaction_number: invoice.InvoiceNumber,
+        transaction_type: invoice.Type,
+        // Use remaining balance instead of full amount if there are part payments
+        amount: isPartiallyPaid ? remainingBalance : totalAmount,
+        original_amount: totalAmount,  // Keep original total for reference
+        issue_date: formatXeroDate(invoice.Date),
+        due_date: formatXeroDate(invoice.DueDate),
+        status: invoice.Status,
+        reference: invoice.Reference || '',
+        // Payment information
+        amount_paid: amountPaid,
+        payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
+          formatXeroDate(invoice.Payments[0].Date) : null,
+        is_partially_paid: isPartiallyPaid,
+        is_paid: invoice.Status === 'PAID',
+        is_voided: invoice.Status === 'VOIDED'
+      };
+    });
 
     res.json({
       success: true,
@@ -359,24 +393,27 @@ router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
     // Transform to match CSV format with additional historical status info
     console.log(`Received ${invoicesData.Invoices?.length || 0} historical invoices`);
     const transformedInvoices = (invoicesData.Invoices || []).map(invoice => {
-      // Debug output for date fields
-      console.log('Raw date fields for invoice', invoice.InvoiceNumber, {
-        date: invoice.Date,
-        dueDate: invoice.DueDate,
-        paymentDate: invoice.Payments && invoice.Payments.length > 0 ? invoice.Payments[0].Date : null
-      });
+      // Calculate amount paid and remaining balance
+      const totalAmount = parseFloat(invoice.Total || 0);
+      const amountPaid = calculateAmountPaid(invoice);
+      const remainingBalance = calculateRemainingBalance(invoice);
+      const isPartiallyPaid = amountPaid > 0 && amountPaid < totalAmount;
       
       return {
         transaction_number: invoice.InvoiceNumber,
         transaction_type: invoice.Type,
-        amount: invoice.Total,
+        // Use remaining balance instead of full amount if there are part payments
+        amount: isPartiallyPaid ? remainingBalance : totalAmount,
+        original_amount: totalAmount,  // Keep original total for reference
         issue_date: formatXeroDate(invoice.Date),
         due_date: formatXeroDate(invoice.DueDate),
         status: invoice.Status,
         reference: invoice.Reference || '',
-        // Historical data
+        // Payment information
+        amount_paid: amountPaid,
         payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
           formatXeroDate(invoice.Payments[0].Date) : null,
+        is_partially_paid: isPartiallyPaid,
         is_paid: invoice.Status === 'PAID',
         is_voided: invoice.Status === 'VOIDED'
       };
