@@ -24,9 +24,9 @@ const formatXeroDate = (xeroDateString) => {
   // Xero returns dates in this format: /Date(1633392000000+0000)/
   // We need to extract the timestamp and convert it to ISO format
   try {
-    // Extract timestamp (milliseconds since epoch) - fixing backslash escaping in the regex
-    // Need to double escape the backslashes for JavaScript string literals
-    const timestampMatch = xeroDateString.match(/\/Date\((\d+)[+-]\d{4}\)\//); 
+    // Check if it's the Xero date format with regex
+    // Fixed regex pattern to properly capture the timestamp
+    const timestampMatch = xeroDateString.match(/\/Date\((\d+)([+-]\d{4})?\)\//); 
     if (timestampMatch && timestampMatch[1]) {
       const timestamp = parseInt(timestampMatch[1], 10);
       return new Date(timestamp).toISOString();
