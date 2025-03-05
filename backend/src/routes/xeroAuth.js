@@ -21,28 +21,52 @@ const xero = new XeroClient({
 const formatXeroDate = (xeroDateString) => {
   if (!xeroDateString) return null;
   
-  // Xero returns dates in this format: /Date(1633392000000+0000)/
-  // We need to extract the timestamp and convert it to ISO format
+  // Log the raw date string for debugging
+  console.log(`Raw Xero date string: ${xeroDateString}`);
+  
   try {
-    // Check if it's the Xero date format with regex
-    // Fixed regex pattern to properly capture the timestamp
-    const timestampMatch = xeroDateString.match(/\/Date\((\d+)([+-]\d{4})?\)\//); 
-    if (timestampMatch && timestampMatch[1]) {
-      const timestamp = parseInt(timestampMatch[1], 10);
-      return new Date(timestamp).toISOString();
+    // First, check if it's in Xero's /Date()/ format
+    if (typeof xeroDateString === 'string' && xeroDateString.includes('/Date(')) {
+      // Extract the timestamp (milliseconds since epoch)
+      const timestamp = xeroDateString.replace(/\/Date\((\d+)[+-]\d{4}\)\//, '$1');
+      console.log(`Extracted timestamp: ${timestamp}`);
+      
+      if (timestamp && !isNaN(parseInt(timestamp))) {
+        const date = new Date(parseInt(timestamp));
+        console.log(`Converted to date: ${date.toISOString()}`);
+        return date.toISOString();
+      }
     }
     
-    // If it's already in a standard format, try parsing directly
-    const parsedDate = dayjs(xeroDateString);
-    if (parsedDate.isValid()) {
-      return parsedDate.toISOString();
+    // If it's in UTC format like "2023-01-15T00:00:00"
+    if (typeof xeroDateString === 'string' && 
+        (xeroDateString.includes('T') || 
+         xeroDateString.match(/^\d{4}-\d{2}-\d{2}/))) {
+      const parsed = dayjs(xeroDateString);
+      if (parsed.isValid()) {
+        console.log(`Parsed as standard date: ${parsed.toISOString()}`);
+        return parsed.toISOString();
+      }
     }
     
-    // If we can't parse it, return null
-    console.warn(`Unable to parse Xero date: ${xeroDateString}`);
+    // If it's already a JavaScript Date object
+    if (xeroDateString instanceof Date && !isNaN(xeroDateString)) {
+      console.log(`Already a Date object: ${xeroDateString.toISOString()}`);
+      return xeroDateString.toISOString();
+    }
+    
+    // If all else fails, just try parsing it with dayjs
+    const fallbackDate = dayjs(xeroDateString);
+    if (fallbackDate.isValid()) {
+      console.log(`Fallback parsing successful: ${fallbackDate.toISOString()}`);
+      return fallbackDate.toISOString();
+    }
+    
+    // If we can't parse it, log and return null
+    console.warn(`Unable to parse Xero date: ${xeroDateString} (type: ${typeof xeroDateString})`);
     return null;
   } catch (error) {
-    console.error('Error parsing Xero date:', error);
+    console.error('Error parsing Xero date:', error, 'Original value:', xeroDateString);
     return null;
   }
 };
@@ -313,6 +337,15 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
       }
     });
     
+    // Print out first invoice to debug date format
+    if (invoicesData.Invoices && invoicesData.Invoices.length > 0) {
+      console.log('Sample invoice date fields:', {
+        Date: invoicesData.Invoices[0].Date,
+        DueDate: invoicesData.Invoices[0].DueDate,
+        FullyPaidOnDate: invoicesData.Invoices[0].FullyPaidOnDate
+      });
+    }
+    
     // Transform to match CSV format
     console.log(`Received ${invoicesData.Invoices?.length || 0} invoices`);
     const transformedInvoices = (invoicesData.Invoices || []).map(invoice => {
@@ -322,20 +355,34 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
       const remainingBalance = calculateRemainingBalance(invoice);
       const isPartiallyPaid = amountPaid > 0 && amountPaid < totalAmount;
       
+      // Extract dates, logging for debugging
+      const issueDate = formatXeroDate(invoice.Date);
+      const dueDate = formatXeroDate(invoice.DueDate);
+      const paymentDate = invoice.Payments && invoice.Payments.length > 0 ? 
+        formatXeroDate(invoice.Payments[0].Date) : null;
+      
+      console.log('Transformed dates:', { 
+        original: { 
+          Date: invoice.Date, 
+          DueDate: invoice.DueDate,
+          PaymentDate: invoice.Payments && invoice.Payments.length > 0 ? invoice.Payments[0].Date : null 
+        },
+        transformed: { issueDate, dueDate, paymentDate }
+      });
+      
       return {
         transaction_number: invoice.InvoiceNumber,
         transaction_type: invoice.Type,
         // Use remaining balance instead of full amount if there are part payments
         amount: isPartiallyPaid ? remainingBalance : totalAmount,
         original_amount: totalAmount,  // Keep original total for reference
-        issue_date: formatXeroDate(invoice.Date),
-        due_date: formatXeroDate(invoice.DueDate),
+        issue_date: issueDate,
+        due_date: dueDate,
         status: invoice.Status,
         reference: invoice.Reference || '',
         // Payment information
         amount_paid: amountPaid,
-        payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
-          formatXeroDate(invoice.Payments[0].Date) : null,
+        payment_date: paymentDate,
         is_partially_paid: isPartiallyPaid,
         is_paid: invoice.Status === 'PAID',
         is_voided: invoice.Status === 'VOIDED'
@@ -391,6 +438,15 @@ router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
       }
     });
     
+    // Print out first invoice to debug date format
+    if (invoicesData.Invoices && invoicesData.Invoices.length > 0) {
+      console.log('Sample historical invoice date fields:', {
+        Date: invoicesData.Invoices[0].Date,
+        DueDate: invoicesData.Invoices[0].DueDate,
+        FullyPaidOnDate: invoicesData.Invoices[0].FullyPaidOnDate
+      });
+    }
+    
     // Transform to match CSV format with additional historical status info
     console.log(`Received ${invoicesData.Invoices?.length || 0} historical invoices`);
     const transformedInvoices = (invoicesData.Invoices || []).map(invoice => {
@@ -400,20 +456,25 @@ router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
       const remainingBalance = calculateRemainingBalance(invoice);
       const isPartiallyPaid = amountPaid > 0 && amountPaid < totalAmount;
       
+      // Extract dates, logging for debugging
+      const issueDate = formatXeroDate(invoice.Date);
+      const dueDate = formatXeroDate(invoice.DueDate);
+      const paymentDate = invoice.Payments && invoice.Payments.length > 0 ? 
+        formatXeroDate(invoice.Payments[0].Date) : null;
+      
       return {
         transaction_number: invoice.InvoiceNumber,
         transaction_type: invoice.Type,
         // Use remaining balance instead of full amount if there are part payments
         amount: isPartiallyPaid ? remainingBalance : totalAmount,
         original_amount: totalAmount,  // Keep original total for reference
-        issue_date: formatXeroDate(invoice.Date),
-        due_date: formatXeroDate(invoice.DueDate),
+        issue_date: issueDate,
+        due_date: dueDate,
         status: invoice.Status,
         reference: invoice.Reference || '',
         // Payment information
         amount_paid: amountPaid,
-        payment_date: invoice.Payments && invoice.Payments.length > 0 ? 
-          formatXeroDate(invoice.Payments[0].Date) : null,
+        payment_date: paymentDate,
         is_partially_paid: isPartiallyPaid,
         is_paid: invoice.Status === 'PAID',
         is_voided: invoice.Status === 'VOIDED'
