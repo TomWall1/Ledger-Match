@@ -158,6 +158,7 @@ const Upload = () => {
           <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h2 className="text-xl font-semibold mb-4 text-[#1B365D]">Accounts Receivable Data</h2>
             
+            {/* Only show the buttons when properly authenticated with Xero */}
             {localAuthState && (
               <div className="mb-4">
                 <div className="flex space-x-4">
@@ -207,6 +208,24 @@ const Upload = () => {
                     onChange={(format) => setDateFormats(prev => ({ ...prev, ar: format }))}
                     label="Select Date Format"
                   />
+
+                  {/* Show Xero connection option only if not already connected */}
+                  {!localAuthState && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <p className="text-sm text-[#647789] mb-3">
+                        Alternatively, you can import data directly from Xero:
+                      </p>
+                      <button
+                        onClick={handleConnectXero}
+                        className="flex items-center justify-center w-full px-4 py-2 bg-[#13B5EA] text-white rounded-lg hover:bg-opacity-90 transition-colors"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Connect to Xero
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : localAuthState && sourceType === 'xero' ? (
                 <div className="space-y-4">
@@ -217,21 +236,7 @@ const Upload = () => {
                     </p>
                   )}
                 </div>
-              ) : (
-                <div className="text-center mb-6 p-4 bg-[#13B5EA] bg-opacity-5 rounded-lg">
-                  <p className="text-[#13B5EA] mb-4">
-                    {localAuthState 
-                      ? "Select data from your connected Xero account"
-                      : "Connect to Xero to import your accounts receivable data"}
-                  </p>
-                  <button
-                    onClick={handleConnectXero}
-                    className="bg-[#13B5EA] text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors"
-                  >
-                    {localAuthState ? "From Xero" : "Connect to Xero"}
-                  </button>
-                </div>
-              )}
+              ) : null}
             </div>
           </div>
 
