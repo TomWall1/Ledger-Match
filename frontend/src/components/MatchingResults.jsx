@@ -85,6 +85,21 @@ const MatchingResults = ({ matchResults }) => {
     }
   };
 
+  // Helper to check if an item has partial payment and return a badge if it does
+  const getPartialPaymentBadge = (item) => {
+    if (!item || !item.is_partially_paid) return null;
+    
+    const originalAmount = parseFloat(item.original_amount || 0);
+    const amountPaid = parseFloat(item.amount_paid || 0);
+    const remainingAmount = parseFloat(item.amount || 0);
+    
+    return (
+      <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+        Partially Paid: {formatCurrency(amountPaid)} of {formatCurrency(originalAmount)}
+      </span>
+    );
+  };
+
   const ResultTable = ({ title, data, columns }) => (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
       <div className="overflow-x-auto" style={{ maxHeight: '400px' }}>
@@ -201,14 +216,26 @@ const MatchingResults = ({ matchResults }) => {
           <h2 className="text-xl font-semibold text-[#1B365D]">Perfect Matches ({safePerfectMatches.length})</h2>
         </div>
         <ResultTable
-          data={safePerfectMatches.map(match => ({
-            'Transaction #': match?.company1?.transactionNumber || match?.company2?.transactionNumber || 'N/A',
-            'Type': match?.company1?.type || match?.company2?.type || 'N/A',
-            'Amount': formatCurrency(match?.company1?.amount || 0),
-            'Date': formatDate(match?.company1?.date || match?.company2?.date),
-            'Due Date': formatDate(match?.company1?.dueDate || match?.company2?.dueDate),
-            'Status': match?.company1?.status || match?.company2?.status || 'N/A'
-          }))}
+          data={safePerfectMatches.map(match => {
+            // Check if there's partial payment info to show
+            const partialPaymentBadge = match.company1?.is_partially_paid ? 
+              getPartialPaymentBadge(match.company1) : 
+              (match.company2?.is_partially_paid ? getPartialPaymentBadge(match.company2) : null);
+              
+            return {
+              'Transaction #': (
+                <div className="flex items-center">
+                  <span>{match?.company1?.transactionNumber || match?.company2?.transactionNumber || 'N/A'}</span>
+                  {partialPaymentBadge}
+                </div>
+              ),
+              'Type': match?.company1?.type || match?.company2?.type || 'N/A',
+              'Amount': formatCurrency(match?.company1?.amount || 0),
+              'Date': formatDate(match?.company1?.date || match?.company2?.date),
+              'Due Date': formatDate(match?.company1?.dueDate || match?.company2?.dueDate),
+              'Status': match?.company1?.status || match?.company2?.status || 'N/A'
+            };
+          })}
           columns={['Transaction #', 'Type', 'Amount', 'Date', 'Due Date', 'Status']}
         />
       </div>
@@ -227,11 +254,37 @@ const MatchingResults = ({ matchResults }) => {
             // Calculate absolute difference between absolute values of amounts
             const difference = Math.abs(receivableAmount - payableAmount);
             
+            // Check for partial payment information
+            const partialPaymentBadge = mismatch.company1?.is_partially_paid ? 
+              getPartialPaymentBadge(mismatch.company1) : 
+              (mismatch.company2?.is_partially_paid ? getPartialPaymentBadge(mismatch.company2) : null);
+            
+            let paymentInfo = null;
+            if (mismatch.company1?.payment_date || mismatch.company2?.payment_date) {
+              const paymentDate = mismatch.company1?.payment_date || mismatch.company2?.payment_date;
+              paymentInfo = (
+                <div>
+                  <span>{formatCurrency(mismatch?.company2?.amount || 0)}</span>
+                  <div className="text-xs text-green-600 mt-1">
+                    {mismatch.company1?.is_partially_paid || mismatch.company2?.is_partially_paid ? 'Partial payment' : 'Payment'} 
+                    on {formatDate(paymentDate)}
+                  </div>
+                </div>
+              );
+            } else {
+              paymentInfo = formatCurrency(mismatch?.company2?.amount || 0);
+            }
+            
             return {
-              'Transaction #': mismatch?.company1?.transactionNumber || mismatch?.company2?.transactionNumber || 'N/A',
+              'Transaction #': (
+                <div className="flex items-center">
+                  <span>{mismatch?.company1?.transactionNumber || mismatch?.company2?.transactionNumber || 'N/A'}</span>
+                  {partialPaymentBadge}
+                </div>
+              ),
               'Type': mismatch?.company1?.type || mismatch?.company2?.type || 'N/A',
               'Receivable Amount': formatCurrency(mismatch?.company1?.amount || 0),
-              'Payable Amount': formatCurrency(mismatch?.company2?.amount || 0),
+              'Payable Amount': paymentInfo,
               'Difference': formatCurrency(difference),
               'Date': formatDate(mismatch?.company1?.date || mismatch?.company2?.date),
               'Status': mismatch?.company1?.status || mismatch?.company2?.status || 'N/A'
@@ -250,26 +303,44 @@ const MatchingResults = ({ matchResults }) => {
           <div>
             <h3 className="text-lg font-semibold mb-4 text-[#1B365D]">Unmatched Receivables ({safeUnmatchedItems.company1?.length || 0})</h3>
             <ResultTable
-              data={(safeUnmatchedItems.company1 || []).map(item => ({
-                'Transaction #': item?.transactionNumber || 'N/A',
-                'Amount': formatCurrency(item?.amount || 0),
-                'Date': formatDate(item?.date),
-                'Due Date': formatDate(item?.dueDate),
-                'Status': item?.status || 'N/A'
-              }))}
+              data={(safeUnmatchedItems.company1 || []).map(item => {
+                const partialPaymentBadge = item.is_partially_paid ? getPartialPaymentBadge(item) : null;
+                
+                return {
+                  'Transaction #': (
+                    <div className="flex items-center">
+                      <span>{item?.transactionNumber || 'N/A'}</span>
+                      {partialPaymentBadge}
+                    </div>
+                  ),
+                  'Amount': formatCurrency(item?.amount || 0),
+                  'Date': formatDate(item?.date),
+                  'Due Date': formatDate(item?.dueDate),
+                  'Status': item?.status || 'N/A'
+                };
+              })}
               columns={['Transaction #', 'Amount', 'Date', 'Due Date', 'Status']}
             />
           </div>
           <div>
             <h3 className="text-lg font-semibold mb-4 text-[#1B365D]">Unmatched Payables ({safeUnmatchedItems.company2?.length || 0})</h3>
             <ResultTable
-              data={(safeUnmatchedItems.company2 || []).map(item => ({
-                'Transaction #': item?.transactionNumber || 'N/A',
-                'Amount': formatCurrency(item?.amount || 0),
-                'Date': formatDate(item?.date),
-                'Due Date': formatDate(item?.dueDate),
-                'Status': item?.status || 'N/A'
-              }))}
+              data={(safeUnmatchedItems.company2 || []).map(item => {
+                const partialPaymentBadge = item.is_partially_paid ? getPartialPaymentBadge(item) : null;
+                
+                return {
+                  'Transaction #': (
+                    <div className="flex items-center">
+                      <span>{item?.transactionNumber || 'N/A'}</span>
+                      {partialPaymentBadge}
+                    </div>
+                  ),
+                  'Amount': formatCurrency(item?.amount || 0),
+                  'Date': formatDate(item?.date),
+                  'Due Date': formatDate(item?.dueDate),
+                  'Status': item?.status || 'N/A'
+                };
+              })}
               columns={['Transaction #', 'Amount', 'Date', 'Due Date', 'Status']}
             />
           </div>
@@ -303,7 +374,16 @@ const MatchingResults = ({ matchResults }) => {
                       <h3 className="font-medium text-[#1B365D]">AR Historical Match</h3>
                       <div className="text-sm">
                         <p><span className="font-medium">Transaction #:</span> {insight.historicalMatch?.transactionNumber || 'N/A'}</p>
-                        <p><span className="font-medium">Amount:</span> {formatCurrency(insight.historicalMatch?.amount || 0)}</p>
+                        <p><span className="font-medium">Original Amount:</span> {formatCurrency(insight.historicalMatch?.original_amount || 0)}</p>
+                        {insight.historicalMatch?.is_partially_paid && (
+                          <p>
+                            <span className="font-medium">Paid Amount:</span> {formatCurrency(insight.historicalMatch?.amount_paid || 0)}
+                            <span className="ml-2 text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">
+                              {((insight.historicalMatch.amount_paid / insight.historicalMatch.original_amount) * 100).toFixed(0)}% paid
+                            </span>
+                          </p>
+                        )}
+                        <p><span className="font-medium">Current Amount:</span> {formatCurrency(insight.historicalMatch?.amount || 0)}</p>
                         <p><span className="font-medium">Date:</span> {formatDate(insight.historicalMatch?.date)}</p>
                         <p><span className="font-medium">Status:</span> {insight.historicalMatch?.status || 'N/A'}</p>
                         {insight.historicalMatch?.payment_date && (
