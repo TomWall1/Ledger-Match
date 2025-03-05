@@ -56,6 +56,8 @@ app.use('/test', testRoutes);
 app.use('/auth', xeroRoutes);
 app.use('/process-csv', processRoutes);
 app.use('/match-data', processRoutes);
+// Add direct mount for the /api path as well to handle /api/match requests
+app.use('/api', processRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -65,7 +67,8 @@ app.get('/', (req, res) => {
       test: '/test/upload',
       auth: '/auth',
       process: '/process-csv',
-      match: '/match-data'
+      match: '/match-data',
+      api: '/api/match'
     }
   });
 });
