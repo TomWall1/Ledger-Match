@@ -9,9 +9,23 @@ dotenv.config();
 
 const app = express();
 
-// Centralized CORS configuration
+// CORS middleware - Allow all origins in development for troubleshooting
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-CSRF-Token, X-Auth-Token');
+  res.header('Access-Control-Expose-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    // Pre-flight request
+    return res.status(200).end();
+  }
+  next();
+});
+
+// Standard CORS configuration - keep as fallback
 const corsOptions = {
-  origin: ['https://ledger-match.vercel.app', 'http://localhost:3000'],
+  origin: '*', // Allow all origins temporarily to fix CORS issues
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Origin',
@@ -27,7 +41,7 @@ const corsOptions = {
   maxAge: 86400 // Cache preflight requests for 24 hours
 };
 
-// Enable CORS with configured options
+// Regular CORS middleware
 app.use(cors(corsOptions));
 
 // Handle OPTIONS preflight requests
