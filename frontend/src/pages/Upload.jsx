@@ -99,16 +99,21 @@ const Upload = () => {
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
       const response = await fetch(`${apiUrl}/api/match`, {
         method: 'POST',
+        mode: 'cors', // Explicitly set CORS mode
+        credentials: 'omit', // Don't send cookies
         body: formData
       });
 
       if (!response.ok) {
-        throw new Error('Failed to process files');
+        const errorText = await response.text();
+        console.error(`Server error: ${response.status}`, errorText);
+        throw new Error(`Failed to process files: ${response.status} ${response.statusText}`);
       }
 
       const results = await response.json();
       navigate('/results', { state: { results } });
     } catch (error) {
+      console.error('Error in handleMatch:', error);
       setError(error.message || 'Error processing files');
     } finally {
       setIsLoading(false);
