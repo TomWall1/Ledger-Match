@@ -170,6 +170,10 @@ const determineHistoricalInsight = (apItem, historicalItem) => {
     insight.type = 'already_paid';
     insight.message = `Invoice ${apItem.transactionNumber} appears to have been paid on ${dayjs(historicalItem.payment_date).format('MMM D, YYYY')}`;
     insight.severity = 'warning';
+  } else if (historicalItem.is_partially_paid) {
+    insight.type = 'partially_paid';
+    insight.message = `Invoice ${apItem.transactionNumber} is partially paid in AR system. Original amount: ${formatCurrency(historicalItem.original_amount)}, Paid: ${formatCurrency(historicalItem.amount_paid)}, Outstanding: ${formatCurrency(historicalItem.amount)}`;
+    insight.severity = 'warning';
   } else if (historicalItem.is_voided) {
     insight.type = 'voided';
     insight.message = `Invoice ${apItem.transactionNumber} was voided in the AR system`;
@@ -185,6 +189,17 @@ const determineHistoricalInsight = (apItem, historicalItem) => {
   }
   
   return insight;
+};
+
+// Helper function for currency formatting in messages
+const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined) return 'N/A';
+  const numericAmount = parseFloat(amount);
+  if (isNaN(numericAmount)) return 'N/A';
+  return numericAmount.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  });
 };
 
 // Safely convert a value to number, handling various formats
@@ -230,7 +245,11 @@ const normalizeData = (data, dateFormat) => {
       // Add historical data fields if they exist
       payment_date: record.payment_date ? parseDate(record.payment_date, dateFormat) : null,
       is_paid: record.is_paid || record.status === 'PAID',
-      is_voided: record.is_voided || record.status === 'VOIDED'
+      is_voided: record.is_voided || record.status === 'VOIDED',
+      // Add part payment fields
+      is_partially_paid: record.is_partially_paid || false,
+      original_amount: parseAmount(record.original_amount || record.amount),
+      amount_paid: parseAmount(record.amount_paid || 0)
     };
     
     // Debug logging to see the result
@@ -296,6 +315,12 @@ const isExactMatch = (item1, item2) => {
   
   // Check if the amounts are opposite (with some small tolerance for rounding)
   const amountsMatch = Math.abs(Math.abs(amount1) - Math.abs(amount2)) < 0.01;
+  
+  // If item1 is partially paid, it's not an exact match (should be a mismatch)
+  if (item1.is_partially_paid || item2.is_partially_paid) {
+    console.log('Item is partially paid, not an exact match');
+    return false;
+  }
   
   return idMatch && amountsMatch;
 };
