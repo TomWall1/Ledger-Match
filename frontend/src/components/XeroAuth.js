@@ -59,11 +59,11 @@ const XeroAuth = () => {
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="p-8">
             <div className="flex items-center justify-center mb-6">
-              <div className="flex items-center justify-center p-4 bg-[#13B5EA] bg-opacity-10 rounded-full">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" className="text-[#13B5EA]">
-                  <path fill="currentColor" d="M18 3a3 3 0 00-3 3v12a3 3 0 003 3 3 3 0 003-3 3 3 0 00-3-3H6a3 3 0 00-3 3 3 3 0 003 3 3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3h12a3 3 0 003-3 3 3 0 00-3-3z"/>
-                </svg>
-              </div>
+              <img 
+                src="https://www.xero.com/content/dam/xero/pilot-images/marketing/x-icon.svg" 
+                alt="Xero Logo" 
+                className="h-16 w-16"
+              />
             </div>
             
             <h2 className="text-2xl font-bold text-center text-[#1B365D] mb-2">
@@ -94,7 +94,14 @@ const XeroAuth = () => {
                   Connecting to Xero...
                 </>
               ) : (
-                'Connect with Xero'
+                <>
+                  <img 
+                    src="https://www.xero.com/content/dam/xero/pilot-images/marketing/x-icon.svg" 
+                    alt="Xero logo" 
+                    className="w-5 h-5 mr-2"
+                  />
+                  Connect with Xero
+                </>
               )}
             </button>
 
