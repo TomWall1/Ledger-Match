@@ -21,9 +21,11 @@ const Home = () => {
                 className="block bg-[#13B5EA] text-white px-6 py-3 rounded-lg hover:bg-opacity-90 transition-colors text-center font-medium"
               >
                 <div className="flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
+                  <img 
+                    src="/xero-logo.svg" 
+                    alt="Xero logo" 
+                    className="w-5 h-5 mr-2"
+                  />
                   Connect to Xero
                 </div>
               </Link>
@@ -87,19 +89,41 @@ const Home = () => {
 
         <div className="mt-8 bg-[#1B365D] bg-opacity-5 rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-3 text-[#1B365D]">
-            Data Requirements
+            CSV Data Format Requirements
           </h2>
-          <div>
-            <h3 className="font-medium text-[#1B365D] mb-2">Required Fields:</h3>
-            <ul className="list-disc list-inside space-y-1 text-[#647789]">
-              <li>transaction_number</li>
-              <li>transaction_type</li>
-              <li>amount (decimal number)</li>
-              <li>issue_date</li>
-              <li>due_date</li>
-              <li>status</li>
-              <li>reference</li>
-            </ul>
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-medium text-[#1B365D] mb-2">Required Columns:</h3>
+              <ul className="list-disc list-inside space-y-2 text-[#647789]">
+                <li><span className="font-medium">transaction_number</span> - Unique identifier for each transaction</li>
+                <li><span className="font-medium">transaction_type</span> - Type of transaction (e.g., INVOICE, BILL, CREDIT_NOTE)</li>
+                <li><span className="font-medium">amount</span> - Decimal number (positive for AR, negative for AP)</li>
+                <li><span className="font-medium">issue_date</span> - Date the transaction was issued</li>
+                <li><span className="font-medium">due_date</span> - Date the transaction is due</li>
+                <li><span className="font-medium">status</span> - Current status of the transaction (e.g., OPEN, PAID, VOIDED)</li>
+                <li><span className="font-medium">reference</span> - Additional reference identifier (optional but useful for matching)</li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-medium text-[#1B365D] mb-2">Specific Format Guidelines:</h3>
+              <ul className="list-disc list-inside space-y-2 text-[#647789]">
+                <li><span className="font-medium">AR Amounts</span> - Should be positive values (e.g., 1500.00)</li>
+                <li><span className="font-medium">AP Amounts</span> - Should be negative values (e.g., -1500.00)</li>
+                <li><span className="font-medium">Transaction Types</span> - Use appropriate types:
+                  <ul className="list-disc ml-6 mt-1">
+                    <li>For AR: "INVOICE", "CREDIT_NOTE", etc.</li>
+                    <li>For AP: "BILL", "CREDIT_NOTE", etc.</li>
+                  </ul>
+                </li>
+                <li><span className="font-medium">Dates</span> - Use consistent date format (YYYY-MM-DD recommended)</li>
+                <li><span className="font-medium">Status</span> - Common values: "OPEN", "PAID", "VOIDED", "DRAFT"</li>
+              </ul>
+            </div>
+            
+            <div className="text-sm text-[#647789] italic">
+              Tip: Download and use the sample templates above for the correct format. Matching is based primarily on transaction numbers and references.
+            </div>
           </div>
         </div>
       </div>
