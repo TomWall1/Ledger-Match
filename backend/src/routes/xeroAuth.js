@@ -21,20 +21,15 @@ const xero = new XeroClient({
 const formatXeroDate = (xeroDateString) => {
   if (!xeroDateString) return null;
   
-  // Log the raw date string for debugging
-  console.log(`Raw Xero date string: ${xeroDateString}`);
-  
   try {
     // First, check if it's in Xero's /Date()/ format
     if (typeof xeroDateString === 'string' && xeroDateString.includes('/Date(')) {
       // Extract the timestamp (milliseconds since epoch)
       const timestamp = xeroDateString.replace(/\/Date\((\d+)[+-]\d{4}\)\//, '$1');
-      console.log(`Extracted timestamp: ${timestamp}`);
       
       if (timestamp && !isNaN(parseInt(timestamp))) {
         const date = new Date(parseInt(timestamp));
-        console.log(`Converted to date: ${date.toISOString()}`);
-        return date.toISOString();
+        return date.toISOString().split('T')[0]; // Return YYYY-MM-DD
       }
     }
     
@@ -44,35 +39,27 @@ const formatXeroDate = (xeroDateString) => {
          xeroDateString.match(/^\d{4}-\d{2}-\d{2}/))) {
       const parsed = dayjs(xeroDateString);
       if (parsed.isValid()) {
-        console.log(`Parsed as standard date: ${parsed.toISOString()}`);
-        return parsed.toISOString();
+        return parsed.format('YYYY-MM-DD');
       }
     }
     
     // If it's already a JavaScript Date object
     if (xeroDateString instanceof Date && !isNaN(xeroDateString)) {
-      console.log(`Already a Date object: ${xeroDateString.toISOString()}`);
-      return xeroDateString.toISOString();
+      return xeroDateString.toISOString().split('T')[0];
     }
     
     // If all else fails, just try parsing it with dayjs
     const fallbackDate = dayjs(xeroDateString);
     if (fallbackDate.isValid()) {
-      console.log(`Fallback parsing successful: ${fallbackDate.toISOString()}`);
-      return fallbackDate.toISOString();
+      return fallbackDate.format('YYYY-MM-DD');
     }
     
-    // If we can't parse it, log and return an explicit value
+    // If we can't parse it, return null
     console.warn(`Unable to parse Xero date: ${xeroDateString} (type: ${typeof xeroDateString})`);
-    
-    // Return a placeholder date instead of null to ensure frontend gets something
-    const currentDate = new Date().toISOString();
-    console.log(`Returning current date as fallback: ${currentDate}`);
-    return currentDate;
+    return null;
   } catch (error) {
     console.error('Error parsing Xero date:', error, 'Original value:', xeroDateString);
-    // Return a placeholder date instead of null to ensure frontend gets something
-    return new Date().toISOString();
+    return null;
   }
 };
 
