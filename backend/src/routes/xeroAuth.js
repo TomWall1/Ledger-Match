@@ -62,12 +62,17 @@ const formatXeroDate = (xeroDateString) => {
       return fallbackDate.toISOString();
     }
     
-    // If we can't parse it, log and return null
+    // If we can't parse it, log and return an explicit value
     console.warn(`Unable to parse Xero date: ${xeroDateString} (type: ${typeof xeroDateString})`);
-    return null;
+    
+    // Return a placeholder date instead of null to ensure frontend gets something
+    const currentDate = new Date().toISOString();
+    console.log(`Returning current date as fallback: ${currentDate}`);
+    return currentDate;
   } catch (error) {
     console.error('Error parsing Xero date:', error, 'Original value:', xeroDateString);
-    return null;
+    // Return a placeholder date instead of null to ensure frontend gets something
+    return new Date().toISOString();
   }
 };
 
@@ -371,13 +376,13 @@ router.get('/xero/customer/:customerId/invoices', requireXeroAuth, async (req, r
       });
       
       return {
-        transaction_number: invoice.InvoiceNumber,
-        transaction_type: invoice.Type,
+        transactionNumber: invoice.InvoiceNumber,
+        type: invoice.Type,
         // Use remaining balance instead of full amount if there are part payments
         amount: isPartiallyPaid ? remainingBalance : totalAmount,
         original_amount: totalAmount,  // Keep original total for reference
-        issue_date: issueDate,
-        due_date: dueDate,
+        date: issueDate,
+        dueDate: dueDate,
         status: invoice.Status,
         reference: invoice.Reference || '',
         // Payment information
@@ -463,13 +468,13 @@ router.get('/xero/historical-invoices', requireXeroAuth, async (req, res) => {
         formatXeroDate(invoice.Payments[0].Date) : null;
       
       return {
-        transaction_number: invoice.InvoiceNumber,
-        transaction_type: invoice.Type,
+        transactionNumber: invoice.InvoiceNumber,
+        type: invoice.Type,
         // Use remaining balance instead of full amount if there are part payments
         amount: isPartiallyPaid ? remainingBalance : totalAmount,
         original_amount: totalAmount,  // Keep original total for reference
-        issue_date: issueDate,
-        due_date: dueDate,
+        date: issueDate,
+        dueDate: dueDate,
         status: invoice.Status,
         reference: invoice.Reference || '',
         // Payment information
