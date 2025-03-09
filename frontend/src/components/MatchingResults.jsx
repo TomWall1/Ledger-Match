@@ -1,4 +1,11 @@
 import React, { useRef } from 'react';
+import { 
+  ExportPerfectMatchesButton, 
+  ExportMismatchesButton, 
+  ExportUnmatchedItemsButton, 
+  ExportHistoricalInsightsButton,
+  ExportAllDataButton 
+} from './CSVExportButtons';
 
 const MatchingResults = ({ matchResults }) => {
   const perfectMatchesRef = useRef(null);
@@ -135,21 +142,35 @@ const MatchingResults = ({ matchResults }) => {
 
   return (
     <div className="space-y-8">
-      {/* Totals Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-2 text-[#1B365D]">Accounts Receivable Total</h3>
-          <p className="text-3xl font-bold text-[#00A4B4]">{formatCurrency(safeTotals.company1Total)}</p>
+      {/* Totals Cards with Export All Data Button */}
+      <div className="flex flex-col space-y-4">
+        <div className="flex justify-end">
+          <ExportAllDataButton 
+            totals={safeTotals} 
+            perfectMatches={safePerfectMatches} 
+            mismatches={safeMismatches} 
+            unmatchedItems={safeUnmatchedItems} 
+            historicalInsights={safeHistoricalInsights}
+            perfectMatchAmount={perfectMatchAmount}
+            mismatchAmount={mismatchAmount}
+            unmatchedAmount={unmatchedAmount}
+          />
         </div>
-        <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-2 text-[#1B365D]">Accounts Payable Total</h3>
-          <p className="text-3xl font-bold text-[#00A4B4]">{formatCurrency(safeTotals.company2Total)}</p>
-        </div>
-        <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-2 text-[#1B365D]">Variance</h3>
-          <p className={`text-3xl font-bold ${Math.abs(parseFloat(safeTotals.variance)) < 0.01 ? 'text-[#7BDCB5]' : 'text-red-500'}`}>
-            {formatCurrency(safeTotals.variance)}
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold mb-2 text-[#1B365D]">Accounts Receivable Total</h3>
+            <p className="text-3xl font-bold text-[#00A4B4]">{formatCurrency(safeTotals.company1Total)}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold mb-2 text-[#1B365D]">Accounts Payable Total</h3>
+            <p className="text-3xl font-bold text-[#00A4B4]">{formatCurrency(safeTotals.company2Total)}</p>
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold mb-2 text-[#1B365D]">Variance</h3>
+            <p className={`text-3xl font-bold ${Math.abs(parseFloat(safeTotals.variance)) < 0.01 ? 'text-[#7BDCB5]' : 'text-red-500'}`}>
+              {formatCurrency(safeTotals.variance)}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -214,6 +235,9 @@ const MatchingResults = ({ matchResults }) => {
       <div ref={perfectMatchesRef} className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-[#1B365D]">Perfect Matches ({safePerfectMatches.length})</h2>
+          {safePerfectMatches.length > 0 && (
+            <ExportPerfectMatchesButton data={safePerfectMatches} />
+          )}
         </div>
         <ResultTable
           data={safePerfectMatches.map(match => {
@@ -244,6 +268,9 @@ const MatchingResults = ({ matchResults }) => {
       <div ref={mismatchesRef} className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-[#1B365D]">Mismatches ({safeMismatches.length})</h2>
+          {safeMismatches.length > 0 && (
+            <ExportMismatchesButton data={safeMismatches} />
+          )}
         </div>
         <ResultTable
           data={safeMismatches.map(mismatch => {
@@ -298,6 +325,9 @@ const MatchingResults = ({ matchResults }) => {
       <div ref={unmatchedRef} className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-[#1B365D]">Unmatched Items</h2>
+          {((safeUnmatchedItems.company1?.length || 0) + (safeUnmatchedItems.company2?.length || 0)) > 0 && (
+            <ExportUnmatchedItemsButton data={safeUnmatchedItems} />
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -354,6 +384,7 @@ const MatchingResults = ({ matchResults }) => {
             <h2 className="text-xl font-semibold text-[#1B365D]">
               Historical Insights for AP Items ({safeHistoricalInsights.length})
             </h2>
+            <ExportHistoricalInsightsButton data={safeHistoricalInsights} />
           </div>
           <div className="space-y-4">
             {safeHistoricalInsights.map((insight, index) => {
