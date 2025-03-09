@@ -98,7 +98,7 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
             className="bg-[#13B5EA] text-white px-4 py-2 mt-2 rounded-lg hover:bg-opacity-90 transition-colors flex items-center"
           >
             <img 
-              src="https://www.xero.com/content/dam/xero/pilot-images/marketing/x-icon.svg" 
+              src="/xero-logo.svg" 
               alt="Xero logo" 
               className="w-5 h-5 mr-2"
             />
@@ -123,9 +123,9 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
     return (
       <div className="p-8 text-center">
         <img 
-          src="https://www.xero.com/content/dam/xero/pilot-images/marketing/x-icon.svg" 
+          src="/xero-logo.svg" 
           alt="Xero Logo" 
-          className="h-12 w-12 mx-auto mb-4 text-[#647789]"
+          className="h-12 w-12 mx-auto mb-4 opacity-30"
         />
         <p className="text-[#647789]">No customers found in your Xero account</p>
       </div>
@@ -136,7 +136,7 @@ const XeroCustomerSelect = ({ onCustomerSelect }) => {
     <div className="border rounded-lg divide-y divide-gray-200 bg-white overflow-hidden max-h-60 overflow-y-auto">
       <div className="bg-[#13B5EA] bg-opacity-10 p-3 flex items-center">
         <img 
-          src="https://www.xero.com/content/dam/xero/pilot-images/marketing/x-icon.svg" 
+          src="/xero-logo.svg" 
           alt="Xero logo" 
           className="w-5 h-5 mr-2"
         />
