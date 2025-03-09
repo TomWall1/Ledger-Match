@@ -27,36 +27,24 @@ const MatchingResults = ({ matchResults }) => {
     if (!date) return 'N/A';
     
     try {
-      // Check if date is already in ISO format (YYYY-MM-DD)
+      // Simple format - handle YYYY-MM-DD format (most common from backend)
       if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}/)) {
-        const parts = date.split('T')[0].split('-');
-        const year = parts[0];
-        const month = parts[1];
-        const day = parts[2];
-        
+        const [year, month, day] = date.split('-');
         return `${month}/${day}/${year}`;
       }
       
-      // Check if it's a Xero /Date()/ format
-      if (typeof date === 'string' && date.includes('/Date(')) {
-        const timestamp = date.replace(/\/Date\((\d+)[+-]\d{4}\)\//, '$1');
-        if (timestamp && !isNaN(parseInt(timestamp))) {
-          const dateObj = new Date(parseInt(timestamp));
-          return dateObj.toLocaleDateString();
-        }
-      }
-      
-      // Fall back to standard JavaScript Date parsing
+      // For anything else, try the standard Date parsing
       const dateObj = new Date(date);
       if (!isNaN(dateObj.getTime())) {
         return dateObj.toLocaleDateString();
       }
       
-      console.warn('Unrecognized date format:', date);
-      return date.toString(); // Return the original string if we can't parse it
+      // If we get here, just return the original string
+      return String(date);
     } catch (error) {
-      console.error('Date formatting error:', error, 'Original date value:', date);
-      return 'N/A';
+      // On error, at least return something meaningful
+      console.error('Date formatting error:', error, 'Date value:', date);
+      return String(date) || 'N/A';
     }
   };
 
@@ -82,13 +70,7 @@ const MatchingResults = ({ matchResults }) => {
 
   // Log sample data to debug date issues
   if (safeUnmatchedItems.company1 && safeUnmatchedItems.company1.length > 0) {
-    console.log('Sample unmatched item date fields:', {
-      transactionNumber: safeUnmatchedItems.company1[0].transactionNumber,
-      date: safeUnmatchedItems.company1[0].date,
-      dueDate: safeUnmatchedItems.company1[0].dueDate,
-      formattedDate: formatDate(safeUnmatchedItems.company1[0].date),
-      formattedDueDate: formatDate(safeUnmatchedItems.company1[0].dueDate)
-    });
+    console.log('Sample unmatched item:', safeUnmatchedItems.company1[0]);
   }
 
   // Safe amount calculations
