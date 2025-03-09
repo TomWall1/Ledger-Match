@@ -2,8 +2,10 @@ import Redis from 'ioredis';
 
 // Create Redis client with connection error handling
 let redis;
+let useRedis = true;
+
 try {
-    redis = new Redis(process.env.REDIS_URL || 'redis://red-cuon34bqf0us7393iir0:6379', {
+    redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
         retryStrategy: (times) => {
             // Retry connecting with exponential backoff
             const delay = Math.min(times * 50, 2000);
@@ -16,14 +18,16 @@ try {
     // Log Redis connection status
     redis.on('connect', () => {
         console.log('Connected to Redis');
+        useRedis = true;
     });
 
     redis.on('error', (err) => {
         console.error('Redis error:', err);
+        useRedis = false; // Switch to memory storage on error
     });
 } catch (error) {
     console.error('Failed to initialize Redis:', error);
-    // Set up a dummy redis client that uses memory instead
+    useRedis = false;
     console.log('Using in-memory token storage fallback');
 }
 
@@ -42,10 +46,16 @@ export const tokenStore = {
                 expires_at: Date.now() + (tokens.expires_in * 1000)
             };
             
-            // Try Redis first
-            if (redis && redis.status === 'ready') {
-                await redis.setex(TOKEN_KEY, TOKEN_EXPIRY, JSON.stringify(tokenData));
-                console.log('Tokens saved to Redis');
+            // Try Redis if enabled
+            if (useRedis && redis && redis.status === 'ready') {
+                try {
+                    await redis.setex(TOKEN_KEY, TOKEN_EXPIRY, JSON.stringify(tokenData));
+                    console.log('Tokens saved to Redis');
+                } catch (redisError) {
+                    console.error('Redis save error, falling back to memory:', redisError);
+                    useRedis = false; // Redis failed, switch to memory
+                    memoryTokens = tokenData;
+                }
             } else {
                 // Fallback to memory
                 memoryTokens = tokenData;
@@ -69,12 +79,17 @@ export const tokenStore = {
         try {
             console.log('Getting tokens...');
             
-            // Try Redis first
-            if (redis && redis.status === 'ready') {
-                const tokensStr = await redis.get(TOKEN_KEY);
-                if (tokensStr) {
-                    console.log('Retrieved tokens from Redis');
-                    return JSON.parse(tokensStr);
+            // Try Redis if enabled
+            if (useRedis && redis && redis.status === 'ready') {
+                try {
+                    const tokensStr = await redis.get(TOKEN_KEY);
+                    if (tokensStr) {
+                        console.log('Retrieved tokens from Redis');
+                        return JSON.parse(tokensStr);
+                    }
+                } catch (redisError) {
+                    console.error('Redis get error, falling back to memory:', redisError);
+                    useRedis = false; // Redis failed, switch to memory
                 }
             }
             
@@ -101,10 +116,15 @@ export const tokenStore = {
         try {
             console.log('Clearing tokens...');
             
-            // Clear from Redis
-            if (redis && redis.status === 'ready') {
-                await redis.del(TOKEN_KEY);
-                console.log('Tokens cleared from Redis');
+            // Clear from Redis if enabled
+            if (useRedis && redis && redis.status === 'ready') {
+                try {
+                    await redis.del(TOKEN_KEY);
+                    console.log('Tokens cleared from Redis');
+                } catch (redisError) {
+                    console.error('Redis clear error:', redisError);
+                    useRedis = false; // Redis failed, switch to memory
+                }
             }
             
             // Always clear from memory too
