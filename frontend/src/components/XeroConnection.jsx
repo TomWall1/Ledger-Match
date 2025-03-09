@@ -8,7 +8,7 @@ const XeroConnection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const { isAuthenticated, checkAuth } = useXero();
+  const { isAuthenticated, checkAuth, error: xeroError } = useXero();
 
   useEffect(() => {
     // Check the authentication status when component mounts
@@ -29,22 +29,37 @@ const XeroConnection = () => {
     checkConnection();
   }, [checkAuth, isAuthenticated]);
 
+  // Use the error from XeroContext if available
+  useEffect(() => {
+    if (xeroError) {
+      setError(xeroError);
+    }
+  }, [xeroError]);
+
   const handleConnect = async () => {
     try {
       setIsLoading(true);
       setError(null);
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/connect`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${apiUrl}/auth/xero/connect`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error('Failed to initiate Xero connection');
+        throw new Error(`Failed to initiate Xero connection: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       window.location.href = data.authUrl;
     } catch (error) {
       console.error('Error connecting to Xero:', error);
-      setError('Failed to connect to Xero. Please try again.');
+      setError(`Failed to connect to Xero: ${error.message}. Please try again.`);
     } finally {
       setIsLoading(false);
     }
@@ -55,10 +70,19 @@ const XeroConnection = () => {
       setIsLoading(true);
       setError(null);
       const apiUrl = process.env.REACT_APP_API_URL || 'https://ledger-match-backend.onrender.com';
-      const response = await fetch(`${apiUrl}/auth/xero/disconnect`, { method: 'POST' });
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(`${apiUrl}/auth/xero/disconnect`, {
+        method: 'POST',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error('Failed to disconnect from Xero');
+        throw new Error(`Failed to disconnect from Xero: ${response.status} ${response.statusText}`);
       }
 
       // Clear local authentication state
@@ -69,7 +93,7 @@ const XeroConnection = () => {
       window.location.reload();
     } catch (error) {
       console.error('Error disconnecting from Xero:', error);
-      setError('Failed to disconnect from Xero. Please try again.');
+      setError(`Failed to disconnect from Xero: ${error.message}. Please try again.`);
     } finally {
       setIsLoading(false);
     }
@@ -77,6 +101,11 @@ const XeroConnection = () => {
 
   const handleContinue = () => {
     navigate('/upload', { state: { xeroEnabled: true } });
+  };
+
+  const handleTryAgain = () => {
+    setError(null);
+    window.location.reload();
   };
 
   return (
@@ -88,7 +117,19 @@ const XeroConnection = () => {
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-              {error}
+              <div className="flex items-center mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span className="font-medium">Connection Error</span>
+              </div>
+              <p>{error}</p>
+              <button 
+                onClick={handleTryAgain}
+                className="mt-2 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors text-sm"
+              >
+                Try Again
+              </button>
             </div>
           )}
 
