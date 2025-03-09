@@ -114,7 +114,7 @@ const XeroConnection = () => {
                   ) : (
                     <>
                       <img 
-                        src="https://www.xero.com/etc/designs/xero/public/assets/images/xero-logo-new.svg" 
+                        src="/xero-logo.svg" 
                         alt="Xero logo" 
                         className="w-5 h-5 mr-2"
                       />
@@ -143,7 +143,16 @@ const XeroConnection = () => {
                     disabled={isLoading}
                     className={`flex items-center px-4 py-2 rounded-lg transition-colors ${isLoading ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white font-medium`}
                   >
-                    {isLoading ? 'Disconnecting...' : 'Disconnect'}
+                    {isLoading ? 'Disconnecting...' : (
+                      <>
+                        <img 
+                          src="/xero-logo.svg" 
+                          alt="Xero logo" 
+                          className="w-4 h-4 mr-2 opacity-80"
+                        />
+                        Disconnect
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
