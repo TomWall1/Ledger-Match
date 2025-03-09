@@ -91,7 +91,7 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
               'bg-secondary-white text-secondary-gray border border-xero-blue hover:bg-xero-blue hover:bg-opacity-10'}`}
           >
             <img 
-              src="https://www.xero.com/etc/designs/xero/public/assets/images/xero-logo-new.svg" 
+              src="/xero-logo.svg" 
               alt="Xero logo" 
               className={`w-5 h-5 mr-2 ${sourceType !== 'xero' && 'filter brightness-0 opacity-60'}`}
             />
@@ -143,11 +143,21 @@ const ARSourceSelector = ({ onFileSelected, onDateFormatChange, selectedDateForm
             </div>
           ) : (
             <div className="max-h-60 overflow-y-auto border rounded-lg divide-y divide-gray-200 bg-white">
+              <div className="bg-[#13B5EA] bg-opacity-10 p-3 flex items-center">
+                <img 
+                  src="/xero-logo.svg" 
+                  alt="Xero logo" 
+                  className="w-5 h-5 mr-2"
+                />
+                <span className="font-medium text-[#1B365D]">Xero Customers</span>
+              </div>
               {customers.length === 0 ? (
                 <p className="p-8 text-center text-secondary-gray">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-4 text-secondary-gray" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
+                  <img 
+                    src="/xero-logo.svg" 
+                    alt="Xero logo" 
+                    className="h-12 w-12 mx-auto mb-4 text-secondary-gray opacity-30"
+                  />
                   No customers found in Xero
                 </p>
               ) : (
