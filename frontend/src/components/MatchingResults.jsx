@@ -31,13 +31,15 @@ const MatchingResults = ({ matchResults }) => {
       // Simple format - handle YYYY-MM-DD format (most common from backend)
       if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}/)) {
         const [year, month, day] = date.split('-');
-        return `${month}/${day}/${year}`;
+        // Format as DD/MM/YYYY for Xero compatibility
+        return `${day}/${month}/${year}`;
       }
       
       // For anything else, try the standard Date parsing
       const dateObj = new Date(date);
       if (!isNaN(dateObj.getTime())) {
-        return dateObj.toLocaleDateString();
+        // Format with day first (DD/MM/YYYY)
+        return dateObj.toLocaleDateString('en-GB');
       }
       
       // If we get here, just return the original string
