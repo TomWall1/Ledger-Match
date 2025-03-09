@@ -60,7 +60,7 @@ const XeroAuth = () => {
           <div className="p-8">
             <div className="flex items-center justify-center mb-6">
               <img 
-                src="https://www.xero.com/content/dam/xero/pilot-images/marketing/x-icon.svg" 
+                src="/xero-logo.svg" 
                 alt="Xero Logo" 
                 className="h-16 w-16"
               />
@@ -96,7 +96,7 @@ const XeroAuth = () => {
               ) : (
                 <>
                   <img 
-                    src="https://www.xero.com/content/dam/xero/pilot-images/marketing/x-icon.svg" 
+                    src="/xero-logo.svg" 
                     alt="Xero logo" 
                     className="w-5 h-5 mr-2"
                   />
