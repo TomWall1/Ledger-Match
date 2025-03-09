@@ -12,6 +12,7 @@ const MatchingResults = ({ matchResults }) => {
   const mismatchesRef = useRef(null);
   const unmatchedRef = useRef(null);
   const historicalInsightsRef = useRef(null);
+  const dateMismatchesRef = useRef(null); // New ref for date mismatches section
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined) return 'N/A';
@@ -66,6 +67,7 @@ const MatchingResults = ({ matchResults }) => {
   const safeMismatches = Array.isArray(safeMatchResults.mismatches) ? safeMatchResults.mismatches : [];
   const safeUnmatchedItems = safeMatchResults.unmatchedItems || { company1: [], company2: [] };
   const safeHistoricalInsights = Array.isArray(safeMatchResults.historicalInsights) ? safeMatchResults.historicalInsights : [];
+  const safeDateMismatches = Array.isArray(safeMatchResults.dateMismatches) ? safeMatchResults.dateMismatches : [];
   const safeTotals = safeMatchResults.totals || { company1Total: 0, company2Total: 0, variance: 0 };
 
   // Log sample data to debug date issues
@@ -237,18 +239,18 @@ const MatchingResults = ({ matchResults }) => {
           </p>
         </div>
 
-        {safeHistoricalInsights.length > 0 && (
-          <div 
-            className="bg-white rounded-lg shadow-lg p-6 border-l-4 border border-blue-400 cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => scrollToSection(historicalInsightsRef)}
-          >
-            <h3 className="text-lg font-semibold text-[#1B365D]">Historical Insights</h3>
-            <p className="text-3xl font-bold text-blue-500">{safeHistoricalInsights.length}</p>
-            <p className="text-sm text-[#647789] mt-2">
-              Additional context for unmatched AP items
-            </p>
-          </div>
-        )}
+        <div 
+          className={`bg-white rounded-lg shadow-lg p-6 border-l-4 border ${safeDateMismatches.length > 0 ? 'border-purple-400 cursor-pointer hover:bg-gray-50' : 'border-gray-300'} transition-colors`}
+          onClick={() => safeDateMismatches.length > 0 && scrollToSection(dateMismatchesRef)}
+        >
+          <h3 className="text-lg font-semibold text-[#1B365D]">Date Discrepancies</h3>
+          <p className={`text-3xl font-bold ${safeDateMismatches.length > 0 ? 'text-purple-500' : 'text-gray-400'}`}>
+            {safeDateMismatches.length}
+          </p>
+          <p className="text-sm text-[#647789] mt-2">
+            {safeDateMismatches.length > 0 ? 'Date differences in matched transactions' : 'No date discrepancies found'}
+          </p>
+        </div>
       </div>
 
       {/* Perfect Matches Section */}
@@ -397,7 +399,40 @@ const MatchingResults = ({ matchResults }) => {
         </div>
       </div>
 
-      {/* Historical Insights Section - New */}
+      {/* Date Mismatches Section - New */}
+      {safeDateMismatches.length > 0 && (
+        <div ref={dateMismatchesRef} className="bg-white rounded-lg shadow-lg p-6 border border-gray-200 border-l-4 border-l-purple-400">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-[#1B365D]">
+              Date Discrepancies in Matched Transactions ({safeDateMismatches.length})
+            </h2>
+          </div>
+          <p className="mb-4 text-sm text-[#647789]">
+            These transactions are matched based on transaction numbers and amounts, but have discrepancies in their dates.
+          </p>
+          <ResultTable
+            data={safeDateMismatches.map(mismatch => {
+              // Determine the type of date mismatch
+              const mismatchType = mismatch.mismatchType === 'transaction_date' 
+                ? 'Transaction Date' 
+                : 'Due Date';
+              
+              return {
+                'Transaction #': mismatch?.company1?.transactionNumber || mismatch?.company2?.transactionNumber || 'N/A',
+                'Type': mismatch?.company1?.type || mismatch?.company2?.type || 'N/A',
+                'Amount': formatCurrency(mismatch?.company1?.amount || 0),
+                'Discrepancy Type': mismatchType,
+                'AR Date': formatDate(mismatch.company1Date),
+                'AP Date': formatDate(mismatch.company2Date),
+                'Days Difference': mismatch.daysDifference || 'N/A'
+              };
+            })}
+            columns={['Transaction #', 'Type', 'Amount', 'Discrepancy Type', 'AR Date', 'AP Date', 'Days Difference']}
+          />
+        </div>
+      )}
+
+      {/* Historical Insights Section */}
       {safeHistoricalInsights.length > 0 && (
         <div ref={historicalInsightsRef} className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           <div className="flex justify-between items-center mb-4">
