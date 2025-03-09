@@ -8,12 +8,26 @@ export const formatCurrencyForCSV = (amount) => {
   return numericAmount.toFixed(2);
 };
 
-// Format date for CSV in a standardized format
+// Format date for CSV in a DD/MM/YYYY format
 export const formatDateForCSV = (date) => {
   if (!date) return '';
   try {
+    // If already in ISO format (YYYY-MM-DD), convert to DD/MM/YYYY
+    if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}/)) {
+      const [year, month, day] = date.split('T')[0].split('-');
+      return `${day}/${month}/${year}`;
+    }
+    
+    // Otherwise try to parse with the Date object
     const d = new Date(date);
-    return d.toISOString().split('T')[0]; // YYYY-MM-DD format
+    if (!isNaN(d.getTime())) {
+      // Format as DD/MM/YYYY
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    return '';
   } catch (error) {
     console.error('Date formatting error for CSV:', error);
     return '';
