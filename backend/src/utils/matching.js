@@ -22,6 +22,13 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
       dateFormat2
     });
 
+    // Check for common field name variations
+    checkAndNormalizeFieldNames(company1Data);
+    checkAndNormalizeFieldNames(company2Data);
+    if (historicalData.length > 0) {
+      checkAndNormalizeFieldNames(historicalData);
+    }
+
     // Log some sample data for debugging
     console.log('Company1 sample data:', company1Data.slice(0, 2));
     console.log('Company2 sample data:', company2Data.slice(0, 2));
@@ -60,21 +67,26 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
     // Find matches
     for (const item1 of normalizedCompany1) {
       const potentialMatches = findPotentialMatches(item1, normalizedCompany2);
+      console.log(`Found ${potentialMatches.length} potential matches for transaction: ${item1.transactionNumber}`);
 
       if (potentialMatches.length === 1) {
         const match = potentialMatches[0];
         if (isExactMatch(item1, match)) {
+          console.log(`Perfect match found for transaction: ${item1.transactionNumber}`);
           perfectMatches.push({ company1: item1, company2: match });
           removeFromUnmatched(unmatchedItems, item1, match);
         } else {
+          console.log(`Mismatch found for transaction: ${item1.transactionNumber}`);
           mismatches.push({ company1: item1, company2: match });
           removeFromUnmatched(unmatchedItems, item1, match);
         }
       } else if (potentialMatches.length > 1) {
+        console.log(`Multiple matches found for transaction: ${item1.transactionNumber}, selecting best match`);
         const bestMatch = findBestMatch(item1, potentialMatches);
         mismatches.push({ company1: item1, company2: bestMatch });
         removeFromUnmatched(unmatchedItems, item1, bestMatch);
       }
+      // If no matches found, item1 remains in unmatchedItems.company1
     }
     
     // After regular matching, check for historical insights for unmatched AP items
@@ -112,6 +124,15 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
     // Calculate variance - the absolute difference between totals
     const variance = calculateVariance(company1Total, company2Total);
 
+    // Print final counts for debugging
+    console.log('Matching results:', {
+      perfectMatchesCount: perfectMatches.length,
+      mismatchesCount: mismatches.length,
+      unmatchedCompany1Count: unmatchedItems.company1.length,
+      unmatchedCompany2Count: unmatchedItems.company2.length,
+      historicalInsightsCount: historicalInsights.length
+    });
+
     return {
       perfectMatches,
       mismatches,
@@ -126,6 +147,57 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
   } catch (error) {
     console.error('Error in matchRecords:', error);
     throw new Error(`Matching error: ${error.message}`);
+  }
+};
+
+/**
+ * Check for commonly variable field names and standardize them
+ * @param {Array} data - Array of data records to normalize fields for
+ */
+const checkAndNormalizeFieldNames = (data) => {
+  if (!data || data.length === 0) return;
+  
+  // Sample record to check field names
+  const record = data[0];
+  
+  // Check for transaction number field variations
+  if (!record.transaction_number && record.transactionNumber) {
+    data.forEach(item => {
+      item.transaction_number = item.transactionNumber;
+    });
+  } else if (!record.transaction_number && record.id) {
+    data.forEach(item => {
+      item.transaction_number = item.id;
+    });
+  } else if (!record.transaction_number && record.invoice_number) {
+    data.forEach(item => {
+      item.transaction_number = item.invoice_number;
+    });
+  }
+  
+  // Check for date field variations
+  if (!record.issue_date && record.date) {
+    data.forEach(item => {
+      item.issue_date = item.date;
+    });
+  } else if (!record.issue_date && record.invoiceDate) {
+    data.forEach(item => {
+      item.issue_date = item.invoiceDate;
+    });
+  }
+  
+  // Check for due date variations
+  if (!record.due_date && record.dueDate) {
+    data.forEach(item => {
+      item.due_date = item.dueDate;
+    });
+  }
+  
+  // Check for transaction type variations
+  if (!record.transaction_type && record.type) {
+    data.forEach(item => {
+      item.transaction_type = item.type;
+    });
   }
 };
 
@@ -226,20 +298,25 @@ const parseAmount = (value) => {
 
 const normalizeData = (data, dateFormat) => {
   return data.map(record => {
+    // Normalize key field names first to ensure we have standard field access
+    const transactionNumber = record.transaction_number || record.transactionNumber || record.invoice_number || '';
+    const type = record.transaction_type || record.type || '';
+    const amount = record.amount;
+    const issueDate = record.issue_date || record.date;
+    const dueDate = record.due_date || record.dueDate;
+    
     // Debug logging to understand the input format
-    console.log('Record before normalization:', {
-      transactionNumber: record.transaction_number,
-      amount: record.amount,
-      type: record.transaction_type
-    });
+    if (transactionNumber) {
+      console.log(`Normalizing record ${transactionNumber}, amount: ${amount}, date: ${issueDate}`);
+    }
     
     // Normalize the data
     const normalized = {
-      transactionNumber: record.transaction_number?.toString().trim(),
-      type: record.transaction_type?.toString().trim(),
-      amount: parseAmount(record.amount),
-      date: parseDate(record.issue_date, dateFormat),
-      dueDate: parseDate(record.due_date, dateFormat),
+      transactionNumber: transactionNumber?.toString().trim(),
+      type: type?.toString().trim(),
+      amount: parseAmount(amount),
+      date: parseDate(issueDate, dateFormat),
+      dueDate: parseDate(dueDate, dateFormat),
       status: record.status?.toString().trim(),
       reference: record.reference?.toString().trim(),
       // Add historical data fields if they exist
@@ -252,21 +329,27 @@ const normalizeData = (data, dateFormat) => {
       amount_paid: parseAmount(record.amount_paid || 0)
     };
     
-    // Debug logging to see the result
-    console.log('Normalized record:', { 
-      transactionNumber: normalized.transactionNumber,
-      amount: normalized.amount,
-      type: normalized.type
-    });
-    
     return normalized;
   });
 };
 
 const parseDate = (dateString, format) => {
   if (!dateString) return null;
-  const parsed = dayjs(dateString, format);
-  return parsed.isValid() ? parsed.toISOString() : null;
+  
+  // If already a standard ISO date string, return it directly
+  if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}/)) {
+    return dateString;
+  }
+  
+  // Try to parse using the specified format
+  let parsed = dayjs(dateString, format);
+  
+  // If that fails, try the default parsing
+  if (!parsed.isValid()) {
+    parsed = dayjs(dateString);
+  }
+  
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD') : null;
 };
 
 const calculateTotal = (data) => {
@@ -313,7 +396,7 @@ const isExactMatch = (item1, item2) => {
   const amount1 = item1.amount || 0;
   const amount2 = item2.amount || 0;
   
-  // Check if the amounts are opposite (with some small tolerance for rounding)
+  // Check if the amounts are close (with some small tolerance for rounding)
   const amountsMatch = Math.abs(Math.abs(amount1) - Math.abs(amount2)) < 0.01;
   
   // If item1 is partially paid, it's not an exact match (should be a mismatch)
@@ -365,10 +448,22 @@ const calculateMatchScore = (item1, item2) => {
 };
 
 const removeFromUnmatched = (unmatchedItems, item1, item2) => {
-  unmatchedItems.company1 = unmatchedItems.company1.filter(item => 
-    item.transactionNumber !== item1.transactionNumber
-  );
-  unmatchedItems.company2 = unmatchedItems.company2.filter(item => 
-    item.transactionNumber !== item2.transactionNumber
-  );
+  // Use a more reliable way to identify items for removal
+  unmatchedItems.company1 = unmatchedItems.company1.filter(item => {
+    // If we have transaction numbers, use them for comparison
+    if (item1.transactionNumber && item.transactionNumber) {
+      return item.transactionNumber !== item1.transactionNumber;
+    }
+    // Otherwise check all properties to find a match
+    return JSON.stringify(item) !== JSON.stringify(item1);
+  });
+  
+  unmatchedItems.company2 = unmatchedItems.company2.filter(item => {
+    // If we have transaction numbers, use them for comparison
+    if (item2.transactionNumber && item.transactionNumber) {
+      return item.transactionNumber !== item2.transactionNumber;
+    }
+    // Otherwise check all properties to find a match
+    return JSON.stringify(item) !== JSON.stringify(item2);
+  });
 };
