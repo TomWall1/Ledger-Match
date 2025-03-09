@@ -12,7 +12,7 @@ dayjs.extend(customParseFormat);
  * @param {Array} historicalData - Optional historical AR data to check paid status
  * @returns {Object} Matching results containing perfect matches, mismatches, unmatched items, and historical insights
  */
-export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM/DD/YYYY', dateFormat2 = 'MM/DD/YYYY', historicalData = []) => {
+export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'DD/MM/YYYY', dateFormat2 = 'DD/MM/YYYY', historicalData = []) => {
   try {
     console.log('Starting matching process with:', {
       company1Count: company1Data.length,
@@ -310,7 +310,7 @@ const determineHistoricalInsight = (apItem, historicalItem) => {
   
   if (historicalItem.is_paid) {
     insight.type = 'already_paid';
-    insight.message = `Invoice ${apItem.transactionNumber} appears to have been paid on ${dayjs(historicalItem.payment_date).format('MMM D, YYYY')}`;
+    insight.message = `Invoice ${apItem.transactionNumber} appears to have been paid on ${dayjs(historicalItem.payment_date).format('DD/MM/YYYY')}`;
     insight.severity = 'warning';
   } else if (historicalItem.is_partially_paid) {
     insight.type = 'partially_paid';
@@ -411,7 +411,7 @@ const parseDate = (dateString, format) => {
     return dateString;
   }
   
-  // Try to parse using the specified format
+  // Try to parse using the specified format (which should now be DD/MM/YYYY by default)
   let parsed = dayjs(dateString, format);
   
   // If that fails, try the default parsing
