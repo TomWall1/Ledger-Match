@@ -57,6 +57,9 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
     
     // New array to track historical insights for unmatched AP items
     const historicalInsights = [];
+    
+    // NEW: Array to track date mismatches in otherwise perfect matches
+    const dateMismatches = [];
 
     // Calculate totals
     const company1Total = calculateTotal(normalizedCompany1);
@@ -74,6 +77,21 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
         if (isExactMatch(item1, match)) {
           console.log(`Perfect match found for transaction: ${item1.transactionNumber}`);
           perfectMatches.push({ company1: item1, company2: match });
+          
+          // NEW: Check for date mismatches in perfect matches
+          const dateMismatch = findDateMismatch(item1, match);
+          if (dateMismatch) {
+            console.log(`Date mismatch found for transaction: ${item1.transactionNumber}`);
+            dateMismatches.push({
+              company1: item1,
+              company2: match,
+              mismatchType: dateMismatch.type,
+              company1Date: dateMismatch.date1,
+              company2Date: dateMismatch.date2,
+              daysDifference: dateMismatch.daysDifference
+            });
+          }
+          
           removeFromUnmatched(unmatchedItems, item1, match);
         } else {
           console.log(`Mismatch found for transaction: ${item1.transactionNumber}`);
@@ -130,7 +148,8 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
       mismatchesCount: mismatches.length,
       unmatchedCompany1Count: unmatchedItems.company1.length,
       unmatchedCompany2Count: unmatchedItems.company2.length,
-      historicalInsightsCount: historicalInsights.length
+      historicalInsightsCount: historicalInsights.length,
+      dateMismatchesCount: dateMismatches.length
     });
 
     return {
@@ -138,6 +157,7 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
       mismatches,
       unmatchedItems,
       historicalInsights,
+      dateMismatches, // NEW: Include date mismatches in the results
       totals: {
         company1Total,
         company2Total,
@@ -148,6 +168,56 @@ export const matchRecords = async (company1Data, company2Data, dateFormat1 = 'MM
     console.error('Error in matchRecords:', error);
     throw new Error(`Matching error: ${error.message}`);
   }
+};
+
+/**
+ * Find date mismatches between two otherwise matching items
+ * @param {Object} item1 - Item from first company
+ * @param {Object} item2 - Item from second company
+ * @returns {Object|null} Date mismatch details or null if dates match
+ */
+const findDateMismatch = (item1, item2) => {
+  // Check normal date mismatch
+  if (item1.date && item2.date) {
+    const date1 = dayjs(item1.date);
+    const date2 = dayjs(item2.date);
+    
+    if (date1.isValid() && date2.isValid()) {
+      const daysDifference = Math.abs(date1.diff(date2, 'day'));
+      
+      // If dates differ by more than 1 day, it's a mismatch
+      if (daysDifference > 1) {
+        return {
+          type: 'transaction_date',
+          date1: item1.date,
+          date2: item2.date,
+          daysDifference
+        };
+      }
+    }
+  }
+  
+  // Check due date mismatch
+  if (item1.dueDate && item2.dueDate) {
+    const dueDate1 = dayjs(item1.dueDate);
+    const dueDate2 = dayjs(item2.dueDate);
+    
+    if (dueDate1.isValid() && dueDate2.isValid()) {
+      const daysDifference = Math.abs(dueDate1.diff(dueDate2, 'day'));
+      
+      // If due dates differ by more than 1 day, it's a mismatch
+      if (daysDifference > 1) {
+        return {
+          type: 'due_date',
+          date1: item1.dueDate,
+          date2: item2.dueDate,
+          daysDifference
+        };
+      }
+    }
+  }
+  
+  return null; // No date mismatches found
 };
 
 /**
