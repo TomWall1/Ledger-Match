@@ -25,10 +25,37 @@ const MatchingResults = ({ matchResults }) => {
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
+    
     try {
-      return new Date(date).toLocaleDateString();
+      // Check if date is already in ISO format (YYYY-MM-DD)
+      if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const parts = date.split('T')[0].split('-');
+        const year = parts[0];
+        const month = parts[1];
+        const day = parts[2];
+        
+        return `${month}/${day}/${year}`;
+      }
+      
+      // Check if it's a Xero /Date()/ format
+      if (typeof date === 'string' && date.includes('/Date(')) {
+        const timestamp = date.replace(/\/Date\((\d+)[+-]\d{4}\)\//, '$1');
+        if (timestamp && !isNaN(parseInt(timestamp))) {
+          const dateObj = new Date(parseInt(timestamp));
+          return dateObj.toLocaleDateString();
+        }
+      }
+      
+      // Fall back to standard JavaScript Date parsing
+      const dateObj = new Date(date);
+      if (!isNaN(dateObj.getTime())) {
+        return dateObj.toLocaleDateString();
+      }
+      
+      console.warn('Unrecognized date format:', date);
+      return date.toString(); // Return the original string if we can't parse it
     } catch (error) {
-      console.error('Date formatting error:', error);
+      console.error('Date formatting error:', error, 'Original date value:', date);
       return 'N/A';
     }
   };
@@ -52,6 +79,17 @@ const MatchingResults = ({ matchResults }) => {
   const safeUnmatchedItems = safeMatchResults.unmatchedItems || { company1: [], company2: [] };
   const safeHistoricalInsights = Array.isArray(safeMatchResults.historicalInsights) ? safeMatchResults.historicalInsights : [];
   const safeTotals = safeMatchResults.totals || { company1Total: 0, company2Total: 0, variance: 0 };
+
+  // Log sample data to debug date issues
+  if (safeUnmatchedItems.company1 && safeUnmatchedItems.company1.length > 0) {
+    console.log('Sample unmatched item date fields:', {
+      transactionNumber: safeUnmatchedItems.company1[0].transactionNumber,
+      date: safeUnmatchedItems.company1[0].date,
+      dueDate: safeUnmatchedItems.company1[0].dueDate,
+      formattedDate: formatDate(safeUnmatchedItems.company1[0].date),
+      formattedDueDate: formatDate(safeUnmatchedItems.company1[0].dueDate)
+    });
+  }
 
   // Safe amount calculations
   const calculateAmount = (item) => {
